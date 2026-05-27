@@ -1,0 +1,16 @@
+{
+  "name": "@codedelta/impact-score",
+  "version": "0.1.0",
+  "description": "Commit impact scoring for CodeDelta (Phase 2)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@codedelta/types": "*",
+    "@codedelta/graph-diff": "*"
+  },
+  "license": "MIT"
+}

@@ -47,6 +47,9 @@ npm-debug.log*
 # CodeGraph data directories (in test projects)
 .codegraph/
 
+# CodeDelta local cache (repos, snapshots, settings)
+.codedelta/
+
 test_frameworks
 
 # Test language repos for manual testing

@@ -1,0 +1,12 @@
+{
+  "name": "@codedelta/types",
+  "version": "0.1.0",
+  "description": "Shared TypeScript types for CodeDelta",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "license": "MIT"
+}

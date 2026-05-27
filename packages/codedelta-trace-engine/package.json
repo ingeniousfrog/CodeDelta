@@ -1,0 +1,16 @@
+{
+  "name": "@codedelta/trace-engine",
+  "version": "0.1.0",
+  "description": "Issue tracing engine for CodeDelta (Phase 3)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@codedelta/types": "*",
+    "@codedelta/provider-runtime": "*"
+  },
+  "license": "MIT"
+}

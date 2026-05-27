@@ -1,7 +1,12 @@
 {
-  "name": "@colbymchenry/codegraph",
-  "version": "0.9.6",
-  "description": "Supercharge Claude Code with semantic code intelligence. 94% fewer tool calls • 77% faster exploration • 100% local.",
+  "name": "@codedelta/monorepo",
+  "version": "0.1.0",
+  "description": "CodeDelta — local-first commit-aware structural code intelligence, built on CodeGraph.",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -14,9 +19,11 @@
   ],
   "scripts": {
     "build": "tsc && npm run copy-assets && node -e \"require('fs').chmodSync('dist/bin/codegraph.js', 0o755)\"",
+    "build:codedelta": "npm run build -w @codedelta/types && npm run build --workspaces --if-present",
     "preuninstall": "node dist/bin/uninstall.js",
     "copy-assets": "node -e \"const fs=require('fs');fs.mkdirSync('dist/db',{recursive:true});fs.copyFileSync('src/db/schema.sql','dist/db/schema.sql');fs.mkdirSync('dist/extraction/wasm',{recursive:true});fs.readdirSync('src/extraction/wasm').filter(f=>f.endsWith('.wasm')).forEach(f=>fs.copyFileSync('src/extraction/wasm/'+f,'dist/extraction/wasm/'+f))\"",
     "dev": "tsc --watch",
+    "dev:codedelta": "npm run build:codedelta && concurrently -n server,web -c blue,green \"npm run dev -w @codedelta/server\" \"npm run dev -w @codedelta/web\"",
     "cli": "npm run build && node dist/bin/codegraph.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -48,6 +55,7 @@
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^20.19.30",
     "@types/picomatch": "^4.0.2",
+    "concurrently": "^9.1.2",
     "typescript": "^5.0.0",
     "vitest": "^2.1.9"
   },

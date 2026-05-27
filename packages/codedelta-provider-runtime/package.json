@@ -1,0 +1,15 @@
+{
+  "name": "@codedelta/provider-runtime",
+  "version": "0.1.0",
+  "description": "LLM provider abstraction for CodeDelta",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@codedelta/types": "*"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@codedelta/repo-manager",
+  "version": "0.1.0",
+  "description": "Git repository import and commit operations for CodeDelta",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@codedelta/types": "*"
+  },
+  "license": "MIT"
+}
