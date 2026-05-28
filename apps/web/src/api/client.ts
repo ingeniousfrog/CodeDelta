@@ -1,7 +1,12 @@
 import type {
   ChangedFile,
+  CodeNode,
   CommitDetail,
   CommitInfo,
+  CompareResponse,
+  FileDiffResponse,
+  GraphDiff,
+  ImpactSummary,
   ImportRepoRequest,
   ModelProviderConfig,
   ProviderKind,
@@ -40,6 +45,16 @@ export const api = {
   getCommit: (id: string, hash: string) =>
     request<CommitDetail>(`/api/repos/${id}/commits/${hash}`),
 
+  compare: (id: string, base: string, head: string) =>
+    request<CompareResponse>(
+      `/api/repos/${id}/compare?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}`,
+    ),
+
+  getFileDiff: (id: string, base: string, head: string, file: string) =>
+    request<FileDiffResponse>(
+      `/api/repos/${id}/diff?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}&file=${encodeURIComponent(file)}`,
+    ),
+
   getProvider: () => request<ModelProviderConfig>('/api/settings/provider'),
 
   setProvider: (config: ModelProviderConfig) =>
@@ -54,6 +69,11 @@ export type {
   CommitInfo,
   CommitDetail,
   ChangedFile,
+  CompareResponse,
+  FileDiffResponse,
+  GraphDiff,
+  ImpactSummary,
+  CodeNode,
   ModelProviderConfig,
   ProviderKind,
 };

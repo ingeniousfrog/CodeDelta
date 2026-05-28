@@ -12,7 +12,11 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@codedelta/delta-summary": "*",
+    "@codedelta/graph-diff": "*",
+    "@codedelta/impact-score": "*",
     "@codedelta/repo-manager": "*",
+    "@codedelta/snapshot-manager": "*",
     "@codedelta/types": "*",
     "cors": "^2.8.5",
     "express": "^4.21.2"

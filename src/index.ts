@@ -21,6 +21,7 @@ import {
   TaskContext,
   BuildContextOptions,
   FindRelevantContextOptions,
+  ExportedGraph,
 } from './types';
 import { DatabaseConnection, getDatabasePath } from './db';
 import { QueryBuilder } from './db/queries';
@@ -717,6 +718,18 @@ export class CodeGraph {
    */
   getFiles(): FileRecord[] {
     return this.queries.getAllFiles();
+  }
+
+  /**
+   * Export the full indexed graph as plain objects (nodes, edges, file paths).
+   * Used by CodeDelta snapshot-manager; does not include app-specific logic.
+   */
+  exportGraph(): ExportedGraph {
+    return {
+      nodes: this.queries.getAllNodes(),
+      edges: this.queries.getAllEdges(),
+      files: this.queries.getAllFiles().map((f) => f.path),
+    };
   }
 
   // ===========================================================================

@@ -509,6 +509,14 @@ export class QueryBuilder {
   }
 
   /**
+   * Get all edges in the database
+   */
+  getAllEdges(): Edge[] {
+    const rows = this.db.prepare('SELECT * FROM edges').all() as EdgeRow[];
+    return rows.map(rowToEdge);
+  }
+
+  /**
    * Get nodes by exact name match (uses idx_nodes_name index)
    */
   getNodesByName(name: string): Node[] {

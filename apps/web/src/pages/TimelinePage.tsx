@@ -161,11 +161,16 @@ export default function TimelinePage() {
               </ul>
 
               <div className="actions">
-                {selected.parents[0] && (
-                  <button type="button" onClick={() => openDelta(selected.parents[0]!, selected.hash)}>
-                    Open in Delta View
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={!selected.parents[0]}
+                  title={selected.parents[0] ? 'Compare this commit with its parent' : 'Root commit has no parent'}
+                  onClick={() => {
+                    if (selected.parents[0]) openDelta(selected.parents[0], selected.hash);
+                  }}
+                >
+                  Compare with previous commit
+                </button>
                 <button type="button" onClick={() => openTrace(selected.hash)}>
                   Open in Trace View
                 </button>

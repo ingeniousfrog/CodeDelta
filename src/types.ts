@@ -573,3 +573,12 @@ export interface FindRelevantContextOptions {
   /** Node types to include */
   nodeKinds?: NodeKind[];
 }
+
+/**
+ * Plain export of the indexed graph for external tools (e.g. CodeDelta snapshots).
+ */
+export interface ExportedGraph {
+  nodes: Node[];
+  edges: Edge[];
+  files: string[];
+}

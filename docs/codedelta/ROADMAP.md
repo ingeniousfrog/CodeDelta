@@ -1,76 +1,137 @@
 # CodeDelta Roadmap
 
-Phase 1 (current) delivers repository import, commit timeline API, and web UI shell.
-
 ## Phase 1 — Foundation ✅
 
-- [x] `@codedelta/types` — shared data models
-- [x] `@codedelta/repo-manager` — GitHub clone, local path, commits, changed files
-- [x] `@codedelta/server` — REST API + registry persistence
-- [x] `@codedelta/web` — Import, Timeline, navigation shells for Delta/Trace/Settings
-- [x] Package stubs for Phase 2/3 modules
+- [x] npm workspaces and package layout
+- [x] `@codedelta/types`
+- [x] `@codedelta/repo-manager`
+- [x] `@codedelta/server` import/branches/commits APIs + registry persistence
+- [x] `@codedelta/web` import/timeline shell + settings shell
+- [x] README repositioning to CodeDelta
 
-## Phase 2 — Delta View
+## Phase 2 — Delta View Foundation (commit-to-commit) ✅
 
-- [ ] `CodeGraph.exportGraph()` in core — export nodes/edges/files as JSON snapshot
-- [ ] `@codedelta/snapshot-manager` — worktree checkout → index → cache under `.codedelta/snapshots/`
-- [ ] `@codedelta/graph-diff` — compare snapshots (added/removed/modified nodes and edges)
-- [ ] `@codedelta/impact-score` — score commits from structural change + entry points
-- [ ] `POST /api/repos/:id/delta` — full implementation
-- [ ] Delta View UI — file tree, changed symbols table, summary panel
+Implemented in this phase:
 
-### Graph diff matching rules
+- [x] `CodeGraph.exportGraph()` and edge export support
+- [x] `@codedelta/snapshot-manager`
+  - safe worktree checkout (no active worktree mutation)
+  - snapshot cache key: `{repoId}/{commitHash}/{analyzerVersion}`
+  - CodeGraph primary path + TS/JS fallback extractor
+- [x] `@codedelta/graph-diff`
+  - added/removed/modified nodes
+  - added/removed edges
+  - affected nodes via BFS (`calls`, `imports`)
+- [x] `@codedelta/impact-score`
+  - deterministic scoring (files, symbols, edges, affected nodes)
+  - risk tags (`auth`, `billing`, `database`, `migration`, `env`, `config`, `api`, `routing`, `dependency`)
+- [x] Compare API
+  - `GET /api/repos/:repoId/compare?base=<hash>&head=<hash>`
+  - error mapping for repo/commit/snapshot/timeout/size/unsupported
+- [x] Delta View UI first functional version
+  - base/head selectors
+  - compare with previous commit
+  - changed files panel
+  - graph diff summary panel
+  - impact/risk panel
+  - structural node/edge lists
+- [x] Timeline integration
+  - action: **Compare with previous commit**
 
-- **Nodes:** match by `qualifiedName` + `kind`; modified when signature or line range changes
-- **Edges:** match by `(source, target, kind)`
-- **Affected nodes:** BFS from changed nodes over `calls` and `imports` edges
+### Notes
 
-## Phase 3 — Trace View + Providers
+- `POST /api/repos/:id/delta` is deprecated and now returns guidance to use `GET /compare`.
+- Rich graph rendering is intentionally deferred.
 
-- [ ] `@codedelta/trace-engine` — candidate retrieval + evidence assembly + LLM prompt
-- [ ] `@codedelta/provider-runtime` — OpenAI, Anthropic, Ollama, compatible, Codex OAuth
-- [ ] `POST /api/repos/:id/trace` — structured `TraceAnswer`
-- [ ] Trace View UI — question input, candidate cards, evidence chain, confidence
-- [ ] Provider Settings — credential storage in `.codedelta/settings.json`
 
-### Trace principles
+## Phase 2.5 — Delta View UX Refinement ✅
 
-- Never invent commits, files, symbols, or behavior
-- State confidence and what was checked vs. cannot be confirmed
-- No-AI mode: candidate commit list from keyword/file/symbol search only
+Implemented in this phase:
 
-## Phase 4 — Polish
+- [x] Deterministic `DeltaSummary` generation
+  - changed files/symbols/edges/affected metrics
+  - main changed areas/modules
+  - risk breakdown with reasons
+  - suggested review order
+- [x] Impact score explanation
+  - severity labels (`low`/`medium`/`high`/`critical`)
+  - explanation reasons + top contributors
+- [x] File-level diff API
+  - `GET /api/repos/:repoId/diff?base=<hash>&head=<hash>&file=<path>`
+  - path traversal validation + clear error mapping
+  - unified patch + parsed hunks
+- [x] Delta View UX reorganization
+  - summary-first information hierarchy
+  - tabs for files/symbols/edges/metrics
+  - changed files and symbols open file diff modal
 
-- [ ] GitHub private repo token support
-- [ ] Incremental snapshot indexing (changed files only)
-- [ ] `codedelta` CLI — single command to start server + open browser
-- [ ] Interactive graph visualization in Delta View
-- [ ] Broader language validation beyond TypeScript/JavaScript
+### Deferred TODOs
 
-## Architecture notes
+- [ ] symbol-to-hunk precise mapping in diff viewer
+- [ ] richer graph rendering
+- [ ] LLM-assisted summary (optional mode)
+- [ ] Trace View
+- [ ] Codex OAuth
+
+## Current supported DeltaSource
+
+Implemented:
+
+```ts
+type DeltaSource = {
+  type: 'commit';
+  commitHash: string;
+  label?: string;
+};
+```
+
+Not implemented yet (planned):
+
+- `branch`
+- `tag`
+- `pull_request`
+- `working_tree`
+- `folder`
+
+## Phase 3 — Trace View + Providers (next)
+
+- [ ] `@codedelta/trace-engine` actual candidate retrieval + evidence assembly
+- [ ] `@codedelta/provider-runtime` real provider implementations
+  - [ ] Codex OAuth
+  - [ ] OpenAI
+  - [ ] OpenAI-compatible endpoint
+  - [ ] Anthropic
+  - [ ] Ollama
+- [ ] `POST /api/repos/:id/trace` production implementation
+- [ ] Trace View UI reasoning output
+
+## Phase 4 — Depth and polish
+
+- [ ] Deeper CodeGraph integration for snapshots (incremental indexing / reuse)
+- [ ] Rich graph visualization (React Flow or Cytoscape)
+- [ ] Private GitHub repository support
+- [ ] Incremental snapshot acceleration for large repositories
+- [ ] Timeline-level persisted impact scores
+- [ ] Extended DeltaSource variants beyond commits
+
+## Architecture snapshot
 
 ```mermaid
 flowchart LR
-  subgraph phase1 [Phase 1]
-    Repo[repo-manager]
-    API[server]
-    UI[web]
+  subgraph phase2 [Phase2_Delta]
+    Repo[repo_manager]
+    Snap[snapshot_manager]
+    Diff[graph_diff]
+    Impact[impact_score]
+    API[compare_api]
+    UI[delta_view_ui]
   end
-  subgraph phase2 [Phase 2]
-    Snap[snapshot-manager]
-    Diff[graph-diff]
-    Impact[impact-score]
-  end
-  subgraph phase3 [Phase 3]
-    Trace[trace-engine]
-    LLM[provider-runtime]
-  end
-  CG[CodeGraph core]
-  UI --> API --> Repo
-  API --> Snap --> CG
-  Snap --> Diff --> Impact
-  API --> Trace --> Diff
-  Trace --> LLM
+  CG[CodeGraph_core]
+  Repo --> Snap
+  Snap --> CG
+  Snap --> Diff
+  Diff --> Impact
+  Impact --> API
+  API --> UI
 ```
 
-Cache key for snapshots: `{repoId}/{commitHash}/{analyzerVersion}` where `analyzerVersion` is the CodeGraph package version.

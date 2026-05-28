@@ -57,6 +57,20 @@ export interface CodeEdge {
   metadata?: Record<string, unknown>;
 }
 
+export type DeltaSource = {
+  type: 'commit';
+  commitHash: string;
+  label?: string;
+};
+
+export type ExtractionMethod = 'codegraph' | 'fallback';
+
+export interface SnapshotMetadata {
+  extractionMethod: ExtractionMethod;
+  durationMs?: number;
+  warnings?: string[];
+}
+
 export interface CodeGraphSnapshot {
   repoId: string;
   commitHash: string;
@@ -67,6 +81,7 @@ export interface CodeGraphSnapshot {
   nodes: CodeNode[];
   edges: CodeEdge[];
   files: string[];
+  metadata?: SnapshotMetadata;
 }
 
 export interface GraphDiff {
@@ -88,6 +103,47 @@ export interface GraphDiff {
   };
 }
 
+export interface DeltaSummary {
+  title: string;
+  overview: string[];
+  mainAreas: Array<{
+    name: string;
+    files: string[];
+    changedSymbols: number;
+    riskTags: string[];
+  }>;
+  risks: Array<{
+    tag: string;
+    reason: string;
+    files: string[];
+  }>;
+  reviewOrder: Array<{
+    file: string;
+    reason: string;
+    priority: 'high' | 'medium' | 'low';
+  }>;
+  metrics: {
+    changedFiles: number;
+    changedSymbols: number;
+    edgeChanges: number;
+    affectedNodes: number;
+  };
+}
+
+export type ImpactSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ImpactExplanation {
+  severity: ImpactSeverity;
+  summary: string;
+  reasons: string[];
+  topContributors: Array<{
+    factor: 'changedFiles' | 'changedSymbols' | 'changedEdges' | 'affectedNodes' | 'riskTags' | 'entryPoints';
+    value: number;
+    weight: number;
+    contribution: number;
+  }>;
+}
+
 export interface ImpactSummary {
   commitHash: string;
   score: number;
@@ -96,6 +152,37 @@ export interface ImpactSummary {
   affectedModules: string[];
   impactedEntryPoints: string[];
   riskTags: string[];
+  explanation?: ImpactExplanation;
+}
+
+export interface CompareResponse {
+  repoId: string;
+  base: DeltaSource;
+  head: DeltaSource;
+  graphDiff: GraphDiff;
+  impact: ImpactSummary;
+  deltaSummary?: DeltaSummary;
+  baseMeta: { nodeCount: number; edgeCount: number; extractionMethod: ExtractionMethod };
+  headMeta: { nodeCount: number; edgeCount: number; extractionMethod: ExtractionMethod };
+}
+
+export interface FileDiffHunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  header: string;
+  lines: string[];
+}
+
+export interface FileDiffResponse {
+  repoId: string;
+  base: string;
+  head: string;
+  file: string;
+  status: ChangedFile['status'];
+  patch: string;
+  hunks: FileDiffHunk[];
 }
 
 export interface CandidateCommit {

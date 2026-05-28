@@ -1,7 +1,7 @@
 {
-  "name": "@codedelta/graph-diff",
+  "name": "@codedelta/delta-summary",
   "version": "0.1.0",
-  "description": "Structural graph diff for CodeDelta (Phase 2)",
+  "description": "Deterministic Delta Summary generator for CodeDelta",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

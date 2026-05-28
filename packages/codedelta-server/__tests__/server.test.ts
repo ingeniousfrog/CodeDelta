@@ -43,7 +43,8 @@ describe('codedelta-server (git)', () => {
     run('git config user.email "test@example.com"', tmpDir);
     run('git config user.name "Test User"', tmpDir);
     fs.writeFileSync(path.join(tmpDir, 'README.md'), '# test\n');
-    run('git add README.md && git commit -m "initial commit"', tmpDir);
+    fs.writeFileSync(path.join(tmpDir, 'index.ts'), 'export const base = 1;\n');
+    run('git add README.md index.ts && git commit -m "initial commit"', tmpDir);
   });
 
   afterEach(() => {
@@ -63,5 +64,42 @@ describe('codedelta-server (git)', () => {
     expect(commitsRes.status).toBe(200);
     expect(commitsRes.body.length).toBe(1);
     expect(commitsRes.body[0].message).toBe('initial commit');
+  });
+
+  it('compares two commits', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'auth.ts'), 'export function login() {}\n');
+    run('git add auth.ts && git commit -m "add auth"', tmpDir);
+
+    const hashes = execFileSync('git', ['log', '--format=%H', '-2'], {
+      cwd: tmpDir,
+      encoding: 'utf8',
+    })
+      .trim()
+      .split('\n');
+    const head = hashes[0]!;
+    const base = hashes[1]!;
+
+    const { app } = createApp({ cacheRoot });
+    const importRes = await request(app)
+      .post('/api/repos/import')
+      .send({ source: 'local', input: tmpDir });
+    const repoId = importRes.body.id as string;
+
+    const compareRes = await request(app).get(
+      `/api/repos/${repoId}/compare?base=${base}&head=${head}`,
+    );
+    expect(compareRes.status).toBe(200);
+    expect(compareRes.body.graphDiff).toBeDefined();
+    expect(compareRes.body.impact.score).toBeGreaterThanOrEqual(0);
+    expect(compareRes.body.base.type).toBe('commit');
+
+    const diffRes = await request(app).get(
+      `/api/repos/${repoId}/diff?base=${base}&head=${head}&file=${encodeURIComponent('auth.ts')}`,
+    );
+    expect(diffRes.status).toBe(200);
+    expect(diffRes.body.file).toBe('auth.ts');
+    expect(typeof diffRes.body.patch).toBe('string');
+    expect(Array.isArray(diffRes.body.hunks)).toBe(true);
+
   });
 });

@@ -9,6 +9,8 @@ import {
   RepoNotFoundError,
 } from '@codedelta/repo-manager';
 import type { ImportRepoRequest } from '@codedelta/types';
+import { compareCommits, CompareError } from '../services/compare';
+import { getFileDiff } from '../services/diff';
 import { RepoRegistry } from '../store/repo-registry';
 import { param } from './params';
 
@@ -76,6 +78,54 @@ export function createReposRouter(registry: RepoRegistry): Router {
     }
   });
 
+  router.get('/:id/compare', async (req: Request, res: Response) => {
+    const id = param(req.params.id);
+    const base = (req.query.base as string | undefined)?.trim();
+    const head = (req.query.head as string | undefined)?.trim();
+
+    if (!base || !head) {
+      res.status(400).json({ error: 'Query parameters base and head are required' });
+      return;
+    }
+
+    try {
+      const result = await compareCommits(registry, id, base, head);
+      res.json(result);
+    } catch (err) {
+      if (err instanceof CompareError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Compare failed',
+      });
+    }
+  });
+
+
+  router.get('/:id/diff', async (req: Request, res: Response) => {
+    const id = param(req.params.id);
+    const base = (req.query.base as string | undefined)?.trim();
+    const head = (req.query.head as string | undefined)?.trim();
+    const file = (req.query.file as string | undefined)?.trim();
+
+    if (!base || !head || !file) {
+      res.status(400).json({ error: 'Query parameters base, head and file are required' });
+      return;
+    }
+
+    try {
+      const result = await getFileDiff(registry, id, base, head, file);
+      res.json(result);
+    } catch (err) {
+      if (err instanceof CompareError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Diff failed' });
+    }
+  });
+
   router.get('/:id/commits', (req: Request, res: Response) => {
     const id = param(req.params.id);
     const ref = registry.get(id);
@@ -111,11 +161,10 @@ export function createReposRouter(registry: RepoRegistry): Router {
     }
   });
 
-  // Phase 2 stub
   router.post('/:id/delta', (_req: Request, res: Response) => {
-    res.status(501).json({
-      error: 'Delta View is not implemented yet',
-      message: 'Graph snapshot diff will be available in Phase 2',
+    res.status(410).json({
+      error: 'Use GET /api/repos/:id/compare?base=&head= instead',
+      message: 'POST /delta was replaced by GET /compare in Phase 2',
     });
   });
 
