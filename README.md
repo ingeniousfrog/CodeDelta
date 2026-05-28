@@ -1,60 +1,67 @@
 # CodeDelta
 
-**Local-first commit-aware structural code intelligence.**
+**Local-first, commit-aware structural code intelligence** — built on [CodeGraph](https://github.com/colbymchenry/codegraph).
 
-CodeDelta explains how code structure **changes across commits** and helps identify which commit may have introduced a behavior shift. It is built on top of [CodeGraph](#built-on-codegraph), which provides the structural analysis core.
+CodeDelta shows how a codebase’s **structure** changes between commits: symbols, dependency edges, blast radius, and review-oriented summaries. **Trace View** helps narrow down which commit may have introduced a behavior change, with evidence you can verify in **Delta View**.
 
-## Current status
+This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, settings UI).
 
-- Phase 1 foundation is complete (import, timeline, API, web shell).
-- Phase 2 now provides a working **commit-to-commit Delta View**.
-- Phase 2.5 refines Delta View for human review (summary, risk explanation, review order, clickable file diffs).
-- Phase 3 now provides a **Trace View foundation** (evidence-first commit tracing with no-AI fallback).
+## How CodeDelta differs from CodeGraph and Understand Anything
 
-## What CodeDelta does
+| | **CodeGraph** | **CodeDelta** | **Understand Anything** |
+|---|---------------|---------------|-------------------------|
+| **Primary question** | What is the structure *now*? Who calls whom? | How did structure *change* between two commits? Which commit likely introduced a shift? | What does this repo *mean*? How do I onboard onto it? |
+| **Unit of work** | Current workspace / indexed tree | `base commit → head commit` (+ commit-history trace) | Whole repo (or docs) snapshot |
+| **Output** | MCP tools, callers/callees, context for agents | Delta summary, impact score, file diff, trace candidates + evidence | Interactive graph dashboard, tours, plain-English node summaries |
+| **Analysis** | Deterministic tree-sitter graph (SQLite) | Same graph **per commit snapshot**, then structural diff | Multi-agent pipeline + LLM-enriched graph (`.understand-anything/`) |
+| **AI role** | Optional (agent uses graph via MCP) | Optional for Trace (deterministic path always works) | Central to explanations and tours |
+| **Best for** | Day-to-day coding agents, refactors, “where is X?” | Release review, regressions, “when did this behavior start?” | Greenfield onboarding, architecture exploration |
 
-CodeDelta focuses on **structural evolution**, not generic git browsing or line-level diffs.
+**Use together:** CodeGraph (or CodeDelta’s embedded engine) for **live** structure; CodeDelta when you care about **history and commit-level risk**; Understand Anything when you need a **guided map of the whole repo** for humans joining the project — not a substitute for commit-to-commit structural delta.
 
-### Delta View (implemented in Phase 2 + 2.5)
+## Features
 
-Compare two commits and inspect structural impact:
+### Delta View
+
+Compare two commits (`Base` = before, `Head` = after):
 
 - Changed symbols (functions, classes, components, routes)
-- Changed dependency edges (`calls`, `imports`)
+- Added/removed dependency edges (`calls`, `imports`)
 - Affected nodes from graph traversal
-- Deterministic impact score with severity/explanation
-- Human-readable Delta Summary (main areas, risks, suggested review order)
-- Clickable file-level diff modal for changed files and symbols
-- Snapshot metadata (`codegraph` vs `fallback` extraction)
+- Deterministic impact score with severity and explanation
+- Delta summary (main areas, risks, suggested review order)
+- File-level unified diff modal (click files or symbols)
+- Per-snapshot metadata (`codegraph` vs `fallback` extraction)
 
-### Trace View (foundation implemented in Phase 3)
+### Trace View
 
-Describe a bug, behavior change, or architecture question. CodeDelta will:
+Describe a bug, behavior change, or question in natural language:
 
-- Retrieve candidate commits deterministically from commit history, messages, and file/symbol signals
-- Reuse Delta compare evidence (`previous -> candidate`) when available
-- Return direct answer, candidates, evidence, uncertainty, and suggested next checks
-- Link each candidate commit back to Delta View for verification
+- Rank candidate commits from history (messages, paths, symbols, delta signals)
+- Attach evidence per candidate (`previous → candidate` compare when a parent exists)
+- Return a direct answer, confidence, uncertainty, and suggested next steps
+- Jump to Delta View to verify each candidate
+
+**Without any LLM configured**, Trace still returns candidates, evidence, and impact radius (evidence-first, no invented facts).
+
+### Commit timeline & import
+
+- Import a public GitHub repo (`owner/repo` or URL) or a **local git path**
+- Browse commits; open Delta or Trace from the timeline
 
 ## What CodeDelta is not
 
-- **Not a generic Git GUI** — no merge UI or branch management workflow
-- **Not a CodeWiki clone** — no auto-generated long-form repository docs
-- **Not just a text diff viewer** — the product is commit-aware **structural** intelligence
-
-## CodeDelta vs codebase-understanding tools
-
-- Codebase-understanding tools explain what a repository looks like **now**.
-- CodeDelta explains how a repository **changes over time**.
-- CodeGraph is the structural analysis foundation.
-- CodeDelta adds timeline, delta comparison, impact scoring, and future trace workflows.
+- **Not a generic Git GUI** — no merge UI or branch workflow
+- **Not a CodeWiki / doc generator** — no long-form auto-docs for the whole repo
+- **Not a line-diff-first tool** — structural delta is the product; text diff supports review
+- **Not a replacement for Understand Anything** — no interactive whole-repo onboarding graph or LLM tours
 
 ## Quick start
 
-Requires Node.js 20–24 and git.
+Requires **Node.js 20–24** and **git**.
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/ingeniousfrog/CodeDelta.git
 cd CodeDelta
 npm install
 npm run build:codedelta
@@ -63,131 +70,147 @@ npm run dev:codedelta
 
 Open [http://localhost:5173](http://localhost:5173).
 
-1. Import a public GitHub URL (`owner/repo` or full URL) or local git path
-2. Open Commit Timeline
-3. Open Delta View and select `Base (before)` and `Head (after)` commits
-4. Review changed files, structural summary, and impact score
-5. Open Trace View to investigate likely introducing commits for an issue description
+1. **Import** a repository (GitHub URL or local path)
+2. **Commit Timeline** — pick a branch and browse history
+3. **Delta View** — choose `Base (before)` and `Head (after)`, then compare
+4. **Trace View** — describe an issue; review candidates and open Delta to verify
 
-API server: [http://localhost:3847](http://localhost:3847)
+API: [http://localhost:3847](http://localhost:3847)
 
-- Health: `GET /api/health`
-- Compare: `GET /api/repos/:repoId/compare?base=<hash>&head=<hash>`
-- File diff: `GET /api/repos/:repoId/diff?base=<hash>&head=<hash>&file=<path>`
-- Trace: `POST /api/repos/:repoId/trace`
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/health` | Health check |
+| `GET /api/repos/:id/compare?base=&head=` | Structural delta between commits |
+| `GET /api/repos/:id/diff?base=&head=&file=` | Unified diff for one file |
+| `POST /api/repos/:id/trace` | Trace question → candidates + evidence |
+| `GET /api/settings/provider` | Current LLM provider settings |
+| `GET /api/settings/provider/codex-status` | Local Codex CLI login status |
 
-## Supported delta source in current implementation
+## Configure Codex for Trace View (optional)
 
-Current implementation supports only:
+CodeDelta can reuse your **existing Codex CLI login** — no API key pasted into the web UI.
 
-- `commit -> commit`
+### 1. Log in with Codex CLI
 
-Future variants (not implemented yet):
+```bash
+# Install Codex CLI if needed: https://github.com/openai/codex
+codex login
+```
 
-- `branch -> branch`
-- `tag -> tag`
-- `PR base -> PR head`
-- `working tree -> HEAD`
-- `local folder -> local folder`
+This creates or updates `~/.codex/auth.json` (ChatGPT OAuth). You can override the directory with `CODEX_HOME`.
 
-## Local-first and cache behavior
+### 2. Select Codex in CodeDelta
 
-CodeDelta stores analysis locally under **`.codedelta/`** (gitignored):
+1. Open the app → **Settings → Provider Settings**
+2. Choose **Codex OAuth**
+3. Confirm the page shows that local login was detected (path under `~/.codex/`)
+4. **Model** — leave empty to use `model` from `~/.codex/config.toml`, or override (e.g. `gpt-5.5`)
+5. **Save settings**
+
+### 3. Run Trace
+
+Open **Trace View**, enter a concrete question (file paths, symbols, or config names help), and click **开始 Trace / Run Trace**.
+
+Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth.
+
+### Codex troubleshooting
+
+| Symptom | What to try |
+|---------|-------------|
+| “未找到 auth.json” | Run `codex login` on the same machine as the CodeDelta server |
+| `HTTP 400` / unsupported parameter | Restart `npm run dev:codedelta` after pulling latest (Codex backend ≠ OpenAI API) |
+| `fetch failed` / timeout | Check network/VPN; retry; see error details for `ENOTFOUND` / `ETIMEDOUT` |
+| AI box red but candidates look fine | Expected fallback — structural trace still works; fix Codex and rerun |
+| Changes to provider code not applied | `dev:codedelta` rebuilds packages on start; restart the dev server |
+
+**Other providers:** **No AI** (default), **OpenAI API key**, or **OpenAI-compatible** base URL + key. Anthropic and Ollama are not implemented yet.
+
+## Local cache (`.codedelta/`)
 
 | Path | Purpose |
 |------|---------|
 | `.codedelta/repos/<id>/` | Cloned or referenced repositories |
-| `.codedelta/registry.json` | Imported repository registry |
-| `.codedelta/snapshots/<repoId>/<hash>/<analyzerVersion>/snapshot.json` | Commit snapshots |
-| `.codedelta/settings.json` | Provider configuration |
+| `.codedelta/registry.json` | Import registry |
+| `.codedelta/snapshots/<repoId>/<hash>/<analyzerVersion>/` | Per-commit structural snapshots |
+| `.codedelta/settings.json` | Provider settings |
 
-Snapshots are built lazily when compare is requested; full history pre-indexing is intentionally avoided.
+Snapshots are built **lazily** on compare/trace — full history is not pre-indexed.
 
-## Extraction behavior in Phase 2
+## Extraction
 
-Primary path:
+**Primary:** CodeGraph (`index` + `exportGraph`) in an isolated git worktree per commit.
 
-- Build snapshot with CodeGraph (`index + exportGraph`) in an isolated worktree.
-
-Fallback path:
-
-- Minimal TS/JS extractor when CodeGraph snapshot build fails.
-- Captures files, imports, exported symbols, simple React components, and route-like files.
-- Snapshot metadata includes `extractionMethod: "fallback"` and warning text.
-
-## Provider options for Trace View
-
-- No AI
-- OpenAI-compatible endpoint (minimal support in Phase 3)
-- OpenAI API key (same chat-completions interface)
-- Codex OAuth (reuse local `codex login` / `~/.codex/auth.json`)
-- Anthropic (not implemented, planned)
-- Ollama (not implemented, planned)
+**Fallback:** Minimal TS/JS extractor if CodeGraph fails; snapshots record `extractionMethod: "fallback"` and warnings.
 
 ## Built on CodeGraph
 
-This fork retains the CodeGraph core in [`src/`](src/):
+The [`src/`](src/) tree is the upstream CodeGraph project:
 
-- Tree-sitter extraction into local SQLite graph
-- Call graphs and impact radius traversal
-- MCP tooling and CLI (`codegraph init`, `codegraph sync`, `codegraph serve --mcp`)
+- Tree-sitter → SQLite knowledge graph
+- CLI: `codegraph init`, `codegraph sync`, `codegraph serve --mcp`
+- MCP tools for agents (search, callers, callees, trace, impact)
 
-**CodeGraph** answers: *what is the code structure?*  
-**CodeDelta** answers: *how does structure change between commits and where risk accumulates?*
+Initialize CodeGraph in a repo when you also want agent-time MCP (separate from the CodeDelta web app):
 
-## Project structure
+```bash
+npm run build
+npx codegraph init -i
+```
+
+## Project layout
 
 ```
-src/                          # CodeGraph core (kept reusable)
+src/                          # CodeGraph core (upstream-compatible)
 packages/
-  codedelta-types/            # Shared models
-  codedelta-repo-manager/     # Repo import + commit APIs
-  codedelta-server/           # REST orchestration
-  codedelta-snapshot-manager/ # Worktree snapshot builder
-  codedelta-graph-diff/       # Structural diff engine
-  codedelta-impact-score/     # Deterministic scoring + explanation
-  codedelta-delta-summary/    # Deterministic human-readable summary
-  codedelta-trace-engine/     # Deterministic trace candidate retrieval
-  codedelta-provider-runtime/ # Provider abstraction + no-AI fallback
-apps/
-  web/                        # React + Vite frontend
+  codedelta-types/
+  codedelta-repo-manager/
+  codedelta-server/           # REST API
+  codedelta-snapshot-manager/
+  codedelta-graph-diff/
+  codedelta-impact-score/
+  codedelta-delta-summary/
+  codedelta-trace-engine/
+  codedelta-provider-runtime/
+apps/web/                     # React UI
 ```
 
-See [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md) for roadmap details.
+Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md).
 
-## Current limitations
+## Limitations
 
-- TypeScript/JavaScript-first practical path
-- Commit-to-commit delta only
-- Lazy snapshot indexing (no full history index)
-- Trace remains commit-history scoped only (no branch/PR/working-tree trace source yet)
-- Codex OAuth uses local CLI session only (no in-app browser login)
-- Rich graph visualization not implemented yet (table/list view now)
-- Symbol-to-hunk mapping not implemented yet (symbol click opens file-level diff)
-- LLM-assisted summary not implemented yet
-- Provider output is optional and non-authoritative; deterministic evidence is source of truth
+- TypeScript/JavaScript-first practical path today
+- Delta and trace: **commit-to-commit** only (no PR/branch/working-tree compare yet)
+- Codex: local CLI session only (no in-browser OAuth)
+- UI: tables/lists (no full graph canvas yet)
+- Symbol click opens **file** diff, not symbol-to-hunk mapping
 
 ## Development
 
 ```bash
-# CodeGraph core
-npm run build
-
-# CodeDelta packages + web
 npm run build:codedelta
-npm run dev:codedelta
+npm run dev:codedelta    # API :3847, web :5173, watches provider-runtime
 
-# Phase 2/2.5 focused tests
-npm test -- packages/codedelta-graph-diff packages/codedelta-impact-score packages/codedelta-server packages/codedelta-snapshot-manager
+npm test -- packages/codedelta-graph-diff packages/codedelta-impact-score \
+  packages/codedelta-server packages/codedelta-snapshot-manager \
+  packages/codedelta-trace-engine packages/codedelta-provider-runtime
 ```
 
 Environment variables:
 
-- `CODEDELTA_CACHE_DIR` — override cache root (default: `.codedelta/`)
-- `CODEDELTA_PORT` — API port (default: `3847`)
-- `CODEDELTA_SNAPSHOT_TIMEOUT_MS` — snapshot timeout (default: `120000`)
-- `CODEDELTA_SNAPSHOT_MAX_NODES` — snapshot node cap (default: `50000`)
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `CODEDELTA_CACHE_DIR` | `.codedelta/` | Cache root |
+| `CODEDELTA_PORT` | `3847` | API port |
+| `CODEDELTA_SNAPSHOT_TIMEOUT_MS` | `120000` | Snapshot build timeout |
+| `CODEDELTA_SNAPSHOT_MAX_NODES` | `50000` | Snapshot node cap |
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+This repository combines:
+
+- **CodeGraph** (`src/`, CLI, MCP): Copyright (c) 2026 [Colby Mchenry](https://github.com/colbymchenry). Upstream: [@colbymchenry/codegraph](https://github.com/colbymchenry/codegraph).
+- **CodeDelta** (`packages/*`, `apps/web/`): Copyright (c) 2026 [ingeniousfrog](https://github.com/ingeniousfrog) and contributors.
+
+Both parts are licensed under the same MIT terms. Redistributions should retain the copyright notice in `LICENSE`.
