@@ -9,7 +9,7 @@ CodeDelta explains how code structure **changes across commits** and helps ident
 - Phase 1 foundation is complete (import, timeline, API, web shell).
 - Phase 2 now provides a working **commit-to-commit Delta View**.
 - Phase 2.5 refines Delta View for human review (summary, risk explanation, review order, clickable file diffs).
-- Phase 3 (Trace View reasoning + provider runtime) is not implemented yet.
+- Phase 3 now provides a **Trace View foundation** (evidence-first commit tracing with no-AI fallback).
 
 ## What CodeDelta does
 
@@ -27,13 +27,14 @@ Compare two commits and inspect structural impact:
 - Clickable file-level diff modal for changed files and symbols
 - Snapshot metadata (`codegraph` vs `fallback` extraction)
 
-### Trace View (planned)
+### Trace View (foundation implemented in Phase 3)
 
 Describe a bug, behavior change, or architecture question. CodeDelta will:
 
-- Retrieve candidate commits from messages, files, symbols, and deltas
-- Assemble evidence chains grounded in graph data
-- Return confidence, uncertainty, and known gaps
+- Retrieve candidate commits deterministically from commit history, messages, and file/symbol signals
+- Reuse Delta compare evidence (`previous -> candidate`) when available
+- Return direct answer, candidates, evidence, uncertainty, and suggested next checks
+- Link each candidate commit back to Delta View for verification
 
 ## What CodeDelta is not
 
@@ -64,14 +65,16 @@ Open [http://localhost:5173](http://localhost:5173).
 
 1. Import a public GitHub URL (`owner/repo` or full URL) or local git path
 2. Open Commit Timeline
-3. Choose a commit and click **Compare with previous commit**, or open Delta View and select base/head
+3. Open Delta View and select `Base (before)` and `Head (after)` commits
 4. Review changed files, structural summary, and impact score
+5. Open Trace View to investigate likely introducing commits for an issue description
 
 API server: [http://localhost:3847](http://localhost:3847)
 
 - Health: `GET /api/health`
 - Compare: `GET /api/repos/:repoId/compare?base=<hash>&head=<hash>`
 - File diff: `GET /api/repos/:repoId/diff?base=<hash>&head=<hash>&file=<path>`
+- Trace: `POST /api/repos/:repoId/trace`
 
 ## Supported delta source in current implementation
 
@@ -112,14 +115,14 @@ Fallback path:
 - Captures files, imports, exported symbols, simple React components, and route-like files.
 - Snapshot metadata includes `extractionMethod: "fallback"` and warning text.
 
-## Provider options (planned for Trace View)
+## Provider options for Trace View
 
 - No AI
-- Codex OAuth (not implemented)
-- OpenAI API key (not implemented)
-- OpenAI-compatible endpoint (not implemented)
-- Anthropic (not implemented)
-- Ollama (not implemented)
+- OpenAI-compatible endpoint (minimal support in Phase 3)
+- OpenAI API key (same chat-completions interface)
+- Codex OAuth (not implemented, planned)
+- Anthropic (not implemented, planned)
+- Ollama (not implemented, planned)
 
 ## Built on CodeGraph
 
@@ -144,8 +147,8 @@ packages/
   codedelta-graph-diff/       # Structural diff engine
   codedelta-impact-score/     # Deterministic scoring + explanation
   codedelta-delta-summary/    # Deterministic human-readable summary
-  codedelta-trace-engine/     # Phase 3 stub
-  codedelta-provider-runtime/ # Phase 3 stub
+  codedelta-trace-engine/     # Deterministic trace candidate retrieval
+  codedelta-provider-runtime/ # Provider abstraction + no-AI fallback
 apps/
   web/                        # React + Vite frontend
 ```
@@ -157,11 +160,12 @@ See [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md) for roadmap details.
 - TypeScript/JavaScript-first practical path
 - Commit-to-commit delta only
 - Lazy snapshot indexing (no full history index)
-- Trace reasoning not implemented yet
+- Trace remains commit-history scoped only (no branch/PR/working-tree trace source yet)
 - Codex OAuth not implemented yet
 - Rich graph visualization not implemented yet (table/list view now)
 - Symbol-to-hunk mapping not implemented yet (symbol click opens file-level diff)
 - LLM-assisted summary not implemented yet
+- Provider output is optional and non-authoritative; deterministic evidence is source of truth
 
 ## Development
 

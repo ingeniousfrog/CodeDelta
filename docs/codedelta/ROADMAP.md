@@ -70,7 +70,7 @@ Implemented in this phase:
 - [ ] symbol-to-hunk precise mapping in diff viewer
 - [ ] richer graph rendering
 - [ ] LLM-assisted summary (optional mode)
-- [ ] Trace View
+- [x] Trace View foundation
 - [ ] Codex OAuth
 
 ## Current supported DeltaSource
@@ -93,17 +93,25 @@ Not implemented yet (planned):
 - `working_tree`
 - `folder`
 
-## Phase 3 — Trace View + Providers (next)
+## Phase 3 — Trace View + Providers ✅ (foundation)
 
-- [ ] `@codedelta/trace-engine` actual candidate retrieval + evidence assembly
-- [ ] `@codedelta/provider-runtime` real provider implementations
-  - [ ] Codex OAuth
-  - [ ] OpenAI
-  - [ ] OpenAI-compatible endpoint
-  - [ ] Anthropic
-  - [ ] Ollama
-- [ ] `POST /api/repos/:id/trace` production implementation
-- [ ] Trace View UI reasoning output
+- [x] `@codedelta/trace-engine` deterministic candidate retrieval + evidence assembly
+- [x] `@codedelta/provider-runtime` no-AI fallback + minimal OpenAI/OpenAI-compatible adapter
+- [x] `POST /api/repos/:id/trace` production foundation implementation
+- [x] Trace View UI first functional version
+  - [x] question input / branch / commitLimit / includeDiffEvidence
+  - [x] candidate commits with reasons and relevance score
+  - [x] evidence panel + impact radius + evolution + uncertainty
+  - [x] candidate -> Delta verification navigation (`previous -> candidate`)
+- [x] low-history fallback behavior (low confidence + uncertainty guidance)
+
+### Phase 3 deferred TODOs
+
+- [ ] Codex OAuth provider
+- [ ] richer provider adapters (Anthropic/Ollama)
+- [ ] stronger trace confidence calibration
+- [ ] richer graph-backed evidence (deeper call-path reasoning)
+- [ ] branch/PR/working-tree/folder trace sources
 
 ## Phase 4 — Depth and polish
 

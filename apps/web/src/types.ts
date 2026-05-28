@@ -179,3 +179,77 @@ export interface ModelProviderConfig {
   model?: string;
   oauthToken?: string;
 }
+
+export interface TraceQuestion {
+  repoId: string;
+  question: string;
+  branch?: string;
+  commitLimit?: number;
+  includeDiffEvidence?: boolean;
+}
+
+export type TraceEvidenceKind =
+  | 'commit-message'
+  | 'changed-file'
+  | 'changed-symbol'
+  | 'edge-change'
+  | 'risk-tag'
+  | 'entry-point'
+  | 'code-diff'
+  | 'delta-summary'
+  | 'delta-unavailable';
+
+export interface TraceEvidenceItem {
+  id: string;
+  kind: TraceEvidenceKind;
+  commitHash: string;
+  title: string;
+  detail: string;
+  file?: string;
+  symbol?: string;
+  score?: number;
+}
+
+export interface TraceCandidateCommit {
+  commit: CommitInfo;
+  relevanceScore: number;
+  reasons: string[];
+  matchedTerms: string[];
+  changedFiles: ChangedFile[];
+  impactSummary?: ImpactSummary;
+  deltaSummary?: DeltaSummary;
+  previousCommitHash?: string;
+}
+
+export interface TraceEvolutionState {
+  label: 'before' | 'candidate' | 'after' | 'current';
+  commitHash?: string;
+  summary: string;
+  evidenceRefs: string[];
+}
+
+export interface TraceAnswer {
+  question: string;
+  directAnswer: string;
+  directAnswerEvidenceRefs?: string[];
+  mostLikelyCommit?: CommitInfo;
+  candidates: TraceCandidateCommit[];
+  evidence: TraceEvidenceItem[];
+  impactRadius: {
+    files: string[];
+    symbols: string[];
+    entryPoints: string[];
+    riskTags: string[];
+  };
+  evolution: TraceEvolutionState[];
+  confidence: 'low' | 'medium' | 'high';
+  uncertainty: string[];
+  uncertaintyEvidenceRefs?: string[];
+  suggestedNextChecks: string[];
+  provider?: {
+    type: string;
+    model?: string;
+    used: boolean;
+    nonAuthoritativeText?: string;
+  };
+}

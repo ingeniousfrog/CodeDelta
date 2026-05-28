@@ -8,13 +8,14 @@ import {
   listCommits,
   RepoNotFoundError,
 } from '@codedelta/repo-manager';
-import type { ImportRepoRequest } from '@codedelta/types';
+import type { ImportRepoRequest, TraceQuestion } from '@codedelta/types';
 import { compareCommits, CompareError } from '../services/compare';
 import { getFileDiff } from '../services/diff';
-import { RepoRegistry } from '../store/repo-registry';
+import { runTrace, TraceError } from '../services/trace';
+import { RepoRegistry, SettingsStore } from '../store/repo-registry';
 import { param } from './params';
 
-export function createReposRouter(registry: RepoRegistry): Router {
+export function createReposRouter(registry: RepoRegistry, settings: SettingsStore): Router {
   const router = Router();
 
   router.post('/import', (req: Request, res: Response) => {
@@ -168,12 +169,32 @@ export function createReposRouter(registry: RepoRegistry): Router {
     });
   });
 
-  // Phase 3 stub
-  router.post('/:id/trace', (_req: Request, res: Response) => {
-    res.status(501).json({
-      error: 'Trace View is not implemented yet',
-      message: 'Issue tracing will be available in Phase 3',
-    });
+  router.post('/:id/trace', async (req: Request, res: Response) => {
+    const repoId = param(req.params.id);
+    const body = (req.body ?? {}) as Partial<TraceQuestion>;
+    const question = (body.question ?? '').trim();
+    if (!question) {
+      res.status(400).json({ error: 'question is required' });
+      return;
+    }
+    try {
+      const result = await runTrace(registry, settings, {
+        repoId,
+        question,
+        branch: body.branch,
+        commitLimit: body.commitLimit,
+        includeDiffEvidence: body.includeDiffEvidence,
+      });
+      res.json(result);
+    } catch (err) {
+      if (err instanceof TraceError || err instanceof CompareError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Trace failed',
+      });
+    }
   });
 
   return router;

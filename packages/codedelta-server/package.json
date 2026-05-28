@@ -15,8 +15,10 @@
     "@codedelta/delta-summary": "*",
     "@codedelta/graph-diff": "*",
     "@codedelta/impact-score": "*",
+    "@codedelta/provider-runtime": "*",
     "@codedelta/repo-manager": "*",
     "@codedelta/snapshot-manager": "*",
+    "@codedelta/trace-engine": "*",
     "@codedelta/types": "*",
     "cors": "^2.8.5",
     "express": "^4.21.2"

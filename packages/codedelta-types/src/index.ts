@@ -185,25 +185,78 @@ export interface FileDiffResponse {
   hunks: FileDiffHunk[];
 }
 
-export interface CandidateCommit {
+export interface TraceQuestion {
+  repoId: string;
+  question: string;
+  branch?: string;
+  commitLimit?: number;
+  includeDiffEvidence?: boolean;
+}
+
+export interface TraceCandidateCommit {
   commit: CommitInfo;
   relevanceScore: number;
   reasons: string[];
-  matchedFiles: string[];
-  matchedSymbols: string[];
+  matchedTerms: string[];
+  changedFiles: ChangedFile[];
+  impactSummary?: ImpactSummary;
+  deltaSummary?: DeltaSummary;
+  previousCommitHash?: string;
+}
+
+export type TraceEvidenceKind =
+  | 'commit-message'
+  | 'changed-file'
+  | 'changed-symbol'
+  | 'edge-change'
+  | 'risk-tag'
+  | 'entry-point'
+  | 'code-diff'
+  | 'delta-summary'
+  | 'delta-unavailable';
+
+export interface TraceEvidenceItem {
+  id: string;
+  kind: TraceEvidenceKind;
+  commitHash: string;
+  title: string;
+  detail: string;
+  file?: string;
+  symbol?: string;
+  score?: number;
+}
+
+export interface TraceEvolutionState {
+  label: 'before' | 'candidate' | 'after' | 'current';
+  commitHash?: string;
+  summary: string;
+  evidenceRefs: string[];
 }
 
 export interface TraceAnswer {
   question: string;
+  directAnswer: string;
+  directAnswerEvidenceRefs?: string[];
   mostLikelyCommit?: CommitInfo;
-  candidateCommits: CandidateCommit[];
-  evidenceChain: string[];
-  impactRadius?: ImpactSummary;
-  evolution: { beginning?: string; middle?: string; final?: string };
-  confidence: 'high' | 'medium' | 'low' | 'insufficient';
-  checked: string[];
-  cannotConfirm: string[];
-  providerUsed: string;
+  candidates: TraceCandidateCommit[];
+  evidence: TraceEvidenceItem[];
+  impactRadius: {
+    files: string[];
+    symbols: string[];
+    entryPoints: string[];
+    riskTags: string[];
+  };
+  evolution: TraceEvolutionState[];
+  confidence: 'low' | 'medium' | 'high';
+  uncertainty: string[];
+  uncertaintyEvidenceRefs?: string[];
+  suggestedNextChecks: string[];
+  provider?: {
+    type: string;
+    model?: string;
+    used: boolean;
+    nonAuthoritativeText?: string;
+  };
 }
 
 export type ProviderKind =

@@ -102,4 +102,25 @@ describe('codedelta-server (git)', () => {
     expect(Array.isArray(diffRes.body.hunks)).toBe(true);
 
   });
+
+  it('traces commits in no-ai mode with evidence', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'auth.ts'), 'export function login() {}\n');
+    run('git add auth.ts && git commit -m "add auth callback handler"', tmpDir);
+
+    const { app } = createApp({ cacheRoot });
+    const importRes = await request(app).post('/api/repos/import').send({ source: 'local', input: tmpDir });
+    const repoId = importRes.body.id as string;
+
+    const traceRes = await request(app).post(`/api/repos/${repoId}/trace`).send({
+      question: 'when did auth callback handler change?',
+      commitLimit: 20,
+      includeDiffEvidence: true,
+    });
+
+    expect(traceRes.status).toBe(200);
+    expect(traceRes.body.question).toContain('auth callback');
+    expect(Array.isArray(traceRes.body.candidates)).toBe(true);
+    expect(Array.isArray(traceRes.body.evidence)).toBe(true);
+    expect(traceRes.body.provider.used).toBe(false);
+  });
 });

@@ -20,7 +20,7 @@ export function createApp(options: CreateAppOptions = {}) {
     res.json({ status: 'ok', product: 'CodeDelta' });
   });
 
-  app.use('/api/repos', createReposRouter(registry));
+  app.use('/api/repos', createReposRouter(registry, settings));
   app.use('/api/settings', createSettingsRouter(settings));
 
   return { app, registry, settings };

@@ -11,6 +11,7 @@ import type {
   ModelProviderConfig,
   ProviderKind,
   RepoRef,
+  TraceAnswer,
 } from '../types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -55,6 +56,15 @@ export const api = {
       `/api/repos/${id}/diff?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}&file=${encodeURIComponent(file)}`,
     ),
 
+  runTrace: (
+    id: string,
+    body: { question: string; branch?: string; commitLimit?: number; includeDiffEvidence?: boolean },
+  ) =>
+    request<TraceAnswer>(`/api/repos/${id}/trace`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   getProvider: () => request<ModelProviderConfig>('/api/settings/provider'),
 
   setProvider: (config: ModelProviderConfig) =>
@@ -73,6 +83,7 @@ export type {
   FileDiffResponse,
   GraphDiff,
   ImpactSummary,
+  TraceAnswer,
   CodeNode,
   ModelProviderConfig,
   ProviderKind,
