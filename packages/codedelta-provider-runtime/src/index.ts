@@ -1,4 +1,11 @@
 import type { ModelProviderConfig } from '@codedelta/types';
+import { borrowCodexCredentials, CodexAuthError, readCodexAuthStatus, readCodexDefaultModel } from './codex-auth';
+import { fetchWithRetry } from './codex-http';
+import { CODEX_BACKEND_BASE_URL, extractResponsesText } from './codex-responses';
+import { readResponsesSseStream } from './codex-stream';
+
+export { borrowCodexCredentials, CodexAuthError, readCodexAuthStatus, readCodexDefaultModel };
+export { CODEX_BACKEND_BASE_URL, extractResponsesText };
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -143,16 +150,83 @@ export class OpenAiCompatibleProvider implements ChatProvider {
   }
 }
 
-/** Phase 3 TODO: Codex OAuth provider placeholder. */
+/** Reuse local Codex CLI ChatGPT OAuth credentials (~/.codex/auth.json). */
 export class CodexOAuthProvider implements ChatProvider {
   readonly id = 'codex-oauth';
   readonly label = 'Codex OAuth';
-  constructor(_config: ModelProviderConfig) {}
-  isConfigured(): boolean {
-    return false;
+  private readonly config: ModelProviderConfig;
+
+  constructor(config: ModelProviderConfig) {
+    this.config = config;
   }
-  async complete(_input: ChatCompleteInput): Promise<string> {
-    throw new Error('Codex OAuth provider: not implemented (Phase 3)');
+
+  isConfigured(): boolean {
+    return readCodexAuthStatus().configured;
+  }
+
+  async complete(input: ChatCompleteInput): Promise<string> {
+    const { accessToken, accountId } = await borrowCodexCredentials();
+    const model = this.config.model ?? readCodexDefaultModel() ?? 'gpt-4o-mini';
+    const inputMessages = input.messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    let res: Response;
+    try {
+      res = await fetchWithRetry(
+        `${CODEX_BACKEND_BASE_URL}/responses`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+            ...(accountId ? { 'ChatGPT-Account-ID': accountId } : {}),
+          },
+          // Codex ChatGPT backend rejects `temperature` (differs from OpenAI API).
+          body: JSON.stringify({
+            model,
+            input: inputMessages,
+            instructions: input.system,
+            store: false,
+            stream: true,
+          }),
+        },
+        { timeoutMs: 120_000, retries: 2 },
+      );
+    } catch (err) {
+      throw new Error(
+        err instanceof Error
+          ? `Codex OAuth provider failed: ${err.message}`
+          : 'Codex OAuth provider failed: network error',
+      );
+    }
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(
+        `Codex OAuth provider failed: HTTP ${res.status}${detail ? ` — ${detail.slice(0, 200)}` : ''}`,
+      );
+    }
+
+    if (!res.body) {
+      throw new Error('Codex OAuth provider returned empty body');
+    }
+
+    let content: string;
+    try {
+      content = await readResponsesSseStream(res.body);
+    } catch (err) {
+      throw new Error(
+        err instanceof Error
+          ? `Codex OAuth provider failed while reading stream: ${err.message}`
+          : 'Codex OAuth provider failed while reading stream',
+      );
+    }
+    if (!content) {
+      throw new Error('Codex OAuth provider returned empty response');
+    }
+    return content;
   }
 }
 

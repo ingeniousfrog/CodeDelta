@@ -71,7 +71,7 @@ Implemented in this phase:
 - [ ] richer graph rendering
 - [ ] LLM-assisted summary (optional mode)
 - [x] Trace View foundation
-- [ ] Codex OAuth
+- [x] Codex OAuth（本机 `codex login`）
 
 ## Current supported DeltaSource
 
@@ -107,7 +107,7 @@ Not implemented yet (planned):
 
 ### Phase 3 deferred TODOs
 
-- [ ] Codex OAuth provider
+- [x] Codex OAuth provider（本机 CLI 凭据 + ChatGPT backend）
 - [ ] richer provider adapters (Anthropic/Ollama)
 - [ ] stronger trace confidence calibration
 - [ ] richer graph-backed evidence (deeper call-path reasoning)

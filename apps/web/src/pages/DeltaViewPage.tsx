@@ -227,8 +227,17 @@ export default function DeltaViewPage() {
     );
   }, [result]);
 
+  const fromTrace = searchParams.get('from') === 'trace';
+
   return (
     <div className="page">
+      {fromTrace && repoId && (
+        <p className="trace-back-row">
+          <Link to={`/repos/${repoId}/trace`} className="back-link">
+            ← 返回 Trace 结果
+          </Link>
+        </p>
+      )}
       <h1>Delta View</h1>
       <p className="lead">
         Commit-to-commit structural review for change scope, risk level, and review priority.

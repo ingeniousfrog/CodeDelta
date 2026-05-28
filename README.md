@@ -120,7 +120,7 @@ Fallback path:
 - No AI
 - OpenAI-compatible endpoint (minimal support in Phase 3)
 - OpenAI API key (same chat-completions interface)
-- Codex OAuth (not implemented, planned)
+- Codex OAuth (reuse local `codex login` / `~/.codex/auth.json`)
 - Anthropic (not implemented, planned)
 - Ollama (not implemented, planned)
 
@@ -161,7 +161,7 @@ See [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md) for roadmap details.
 - Commit-to-commit delta only
 - Lazy snapshot indexing (no full history index)
 - Trace remains commit-history scoped only (no branch/PR/working-tree trace source yet)
-- Codex OAuth not implemented yet
+- Codex OAuth uses local CLI session only (no in-app browser login)
 - Rich graph visualization not implemented yet (table/list view now)
 - Symbol-to-hunk mapping not implemented yet (symbol click opens file-level diff)
 - LLM-assisted summary not implemented yet

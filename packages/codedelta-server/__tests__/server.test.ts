@@ -30,6 +30,19 @@ describe('codedelta-server (no git)', () => {
     expect(res.body.kind).toBe('none');
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  it('returns codex auth status payload', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codedelta-server-'));
+    const cacheRoot = path.join(tmpDir, '.codedelta');
+    const { app } = createApp({ cacheRoot });
+    const res = await request(app).get('/api/settings/provider/codex-status');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('configured');
+    expect(res.body).toHaveProperty('codexHome');
+    expect(res.body).toHaveProperty('message');
+    expect(res.body).not.toHaveProperty('access_token');
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 });
 
 describe('codedelta-server (git)', () => {

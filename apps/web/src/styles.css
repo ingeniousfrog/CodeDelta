@@ -582,3 +582,110 @@ label {
   background: rgba(110, 168, 254, 0.12);
   color: #c6d8ff;
 }
+
+.trace-page .trace-summary-card {
+  border-color: rgba(110, 168, 254, 0.35);
+}
+
+.trace-direct-answer {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  margin: 0.5rem 0 1rem;
+}
+
+.trace-meta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.trace-likely-commit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.trace-delta-cta {
+  margin-left: auto;
+}
+
+.trace-candidate-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.trace-candidate-list li {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.trace-candidate-top {
+  border-color: rgba(110, 168, 254, 0.45);
+  background: rgba(110, 168, 254, 0.06);
+}
+
+.trace-candidate-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.trace-rank {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.trace-score {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.trace-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.trace-evidence-group {
+  margin-top: 1rem;
+}
+
+.trace-evidence-group h3 {
+  font-size: 0.95rem;
+  margin-bottom: 0.35rem;
+}
+
+.trace-ev-kind {
+  color: #9ec5ff;
+  font-size: 0.85rem;
+}
+
+.trace-restored-banner {
+  margin-bottom: 1rem;
+}
+
+.trace-provider-warn ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.trace-back-row {
+  margin-bottom: 0.75rem;
+}
+
+.back-link {
+  color: #9ec5ff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}

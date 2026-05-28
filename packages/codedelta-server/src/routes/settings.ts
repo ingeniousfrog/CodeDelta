@@ -1,3 +1,4 @@
+import { readCodexAuthStatus } from '@codedelta/provider-runtime';
 import { Router, type Request, type Response } from 'express';
 import type { ModelProviderConfig } from '@codedelta/types';
 import { SettingsStore } from '../store/repo-registry';
@@ -7,6 +8,10 @@ export function createSettingsRouter(settings: SettingsStore): Router {
 
   router.get('/provider', (_req: Request, res: Response) => {
     res.json(settings.getProvider());
+  });
+
+  router.get('/provider/codex-status', (_req: Request, res: Response) => {
+    res.json(readCodexAuthStatus());
   });
 
   router.put('/provider', (req: Request, res: Response) => {

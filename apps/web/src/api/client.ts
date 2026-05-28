@@ -12,6 +12,7 @@ import type {
   ProviderKind,
   RepoRef,
   TraceAnswer,
+  TraceEvidenceItem,
 } from '../types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -67,6 +68,16 @@ export const api = {
 
   getProvider: () => request<ModelProviderConfig>('/api/settings/provider'),
 
+  getCodexAuthStatus: () =>
+    request<{
+      configured: boolean;
+      authMode?: string;
+      codexHome: string;
+      authPath: string;
+      message: string;
+      defaultModel?: string;
+    }>('/api/settings/provider/codex-status'),
+
   setProvider: (config: ModelProviderConfig) =>
     request<ModelProviderConfig>('/api/settings/provider', {
       method: 'PUT',
@@ -84,6 +95,7 @@ export type {
   GraphDiff,
   ImpactSummary,
   TraceAnswer,
+  TraceEvidenceItem,
   CodeNode,
   ModelProviderConfig,
   ProviderKind,

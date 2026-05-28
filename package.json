@@ -23,7 +23,7 @@
     "preuninstall": "node dist/bin/uninstall.js",
     "copy-assets": "node -e \"const fs=require('fs');fs.mkdirSync('dist/db',{recursive:true});fs.copyFileSync('src/db/schema.sql','dist/db/schema.sql');fs.mkdirSync('dist/extraction/wasm',{recursive:true});fs.readdirSync('src/extraction/wasm').filter(f=>f.endsWith('.wasm')).forEach(f=>fs.copyFileSync('src/extraction/wasm/'+f,'dist/extraction/wasm/'+f))\"",
     "dev": "tsc --watch",
-    "dev:codedelta": "npm run build:codedelta && concurrently -n server,web -c blue,green \"npm run dev -w @codedelta/server\" \"npm run dev -w @codedelta/web\"",
+    "dev:codedelta": "npm run build:codedelta && concurrently -n server,web,provider -c blue,green,magenta \"npm run dev -w @codedelta/server\" \"npm run dev -w @codedelta/web\" \"npm run dev -w @codedelta/provider-runtime\"",
     "cli": "npm run build && node dist/bin/codegraph.js",
     "test": "vitest run",
     "test:watch": "vitest",
