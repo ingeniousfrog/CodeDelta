@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import {
+  Alert,
+  Button,
+  Card,
+  CardHeader,
+  FormField,
+  PageHeader,
+  TextInput,
+} from '../components/ui';
 
 export default function ImportPage() {
   const navigate = useNavigate();
@@ -25,55 +34,56 @@ export default function ImportPage() {
 
   return (
     <div className="page">
-      <h1>Import Repository</h1>
-      <p className="lead">
-        Import a public GitHub repository or open a local git path. CodeDelta lists commits first
-        and builds structural graph snapshots only when you analyze them.
-      </p>
+      <PageHeader
+        title="Import Repository"
+        description="Import a public GitHub repository or open a local git path. Commits are listed immediately; structural snapshots are built lazily when you compare or trace."
+      />
 
-      {error && <div className="alert error">{error}</div>}
+      {error && <Alert variant="error">{error}</Alert>}
 
-      <section className="card">
-        <h2>GitHub URL</h2>
-        <p className="hint">Public repositories only in this version.</p>
-        <div className="row">
-          <input
-            type="text"
-            placeholder="https://github.com/owner/repo or owner/repo"
-            value={githubUrl}
-            onChange={(e) => setGithubUrl(e.target.value)}
-            disabled={loading}
-          />
-          <button
-            type="button"
+      <div className="page-grid-2">
+        <Card>
+          <CardHeader title="GitHub URL" description="Public repositories only in this version." />
+          <FormField label="Repository" htmlFor="github-url">
+            <TextInput
+              id="github-url"
+              type="text"
+              placeholder="https://github.com/owner/repo or owner/repo"
+              value={githubUrl}
+              onChange={(e) => setGithubUrl(e.target.value)}
+              disabled={loading}
+            />
+          </FormField>
+          <Button
+            variant="primary"
             disabled={loading || !githubUrl.trim()}
             onClick={() => handleImport('github', githubUrl)}
           >
             {loading ? 'Importing…' : 'Import from GitHub'}
-          </button>
-        </div>
-      </section>
+          </Button>
+        </Card>
 
-      <section className="card">
-        <h2>Local Path</h2>
-        <p className="hint">Absolute path to a git repository on this machine.</p>
-        <div className="row">
-          <input
-            type="text"
-            placeholder="/Users/you/projects/my-repo"
-            value={localPath}
-            onChange={(e) => setLocalPath(e.target.value)}
-            disabled={loading}
-          />
-          <button
-            type="button"
+        <Card>
+          <CardHeader title="Local path" description="Absolute path to a git repository on this machine." />
+          <FormField label="Path" htmlFor="local-path">
+            <TextInput
+              id="local-path"
+              type="text"
+              placeholder="/Users/you/projects/my-repo"
+              value={localPath}
+              onChange={(e) => setLocalPath(e.target.value)}
+              disabled={loading}
+            />
+          </FormField>
+          <Button
+            variant="primary"
             disabled={loading || !localPath.trim()}
             onClick={() => handleImport('local', localPath)}
           >
-            {loading ? 'Opening…' : 'Open Local Repo'}
-          </button>
-        </div>
-      </section>
+            {loading ? 'Opening…' : 'Open local repository'}
+          </Button>
+        </Card>
+      </div>
     </div>
   );
 }

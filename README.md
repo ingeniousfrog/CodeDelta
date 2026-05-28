@@ -75,6 +75,27 @@ Open [http://localhost:5173](http://localhost:5173).
 3. **Delta View** — choose `Base (before)` and `Head (after)`, then compare
 4. **Trace View** — describe an issue; review candidates and open Delta to verify
 
+## UI walkthrough
+
+### 1) Import repository
+
+![Import Repository](docs/images/import-view.png)
+
+### 2) Commit timeline
+
+![Commit Timeline](docs/images/commit-timeline-view.png)
+
+### 3) Delta View (structural compare)
+
+![Delta View](docs/images/delta-view-overview.png)
+
+### 4) Trace View (evidence-first origin analysis)
+
+![Trace View](docs/images/trace-view-overview.png)
+
+File-level modal details are also captured in:
+[`docs/images/delta-file-diff-modal.png`](docs/images/delta-file-diff-modal.png)
+
 API: [http://localhost:3847](http://localhost:3847)
 
 | Endpoint | Description |
@@ -109,7 +130,7 @@ This creates or updates `~/.codex/auth.json` (ChatGPT OAuth). You can override t
 
 ### 3. Run Trace
 
-Open **Trace View**, enter a concrete question (file paths, symbols, or config names help), and click **开始 Trace / Run Trace**.
+Open **Trace View**, enter a concrete question (file paths, symbols, or config names help), and click **Run trace**.
 
 Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth.
 
@@ -117,7 +138,7 @@ Deterministic results always appear; if Codex is configured, the model may refin
 
 | Symptom | What to try |
 |---------|-------------|
-| “未找到 auth.json” | Run `codex login` on the same machine as the CodeDelta server |
+| “auth.json not found” | Run `codex login` on the same machine as the CodeDelta server |
 | `HTTP 400` / unsupported parameter | Restart `npm run dev:codedelta` after pulling latest (Codex backend ≠ OpenAI API) |
 | `fetch failed` / timeout | Check network/VPN; retry; see error details for `ENOTFOUND` / `ETIMEDOUT` |
 | AI box red but candidates look fine | Expected fallback — structural trace still works; fix Codex and rerun |

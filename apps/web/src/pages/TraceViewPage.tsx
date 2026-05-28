@@ -1,42 +1,48 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type TraceAnswer } from '../api/client';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  FormField,
+  Mono,
+  PageHeader,
+  Select,
+  TextArea,
+} from '../components/ui';
 import type { TraceEvidenceItem } from '../types';
 import { clearTraceSession, loadTraceSession, saveTraceSession } from '../lib/trace-cache';
 
 const EVIDENCE_KIND_LABEL: Record<string, string> = {
-  'commit-message': '提交说明',
-  'changed-file': '变更文件',
-  'changed-symbol': '变更符号',
-  'edge-change': '依赖边',
-  'risk-tag': '风险标签',
-  'entry-point': '入口点',
-  'code-diff': '可查看 diff',
-  'delta-summary': '结构摘要',
-  'delta-unavailable': 'Delta 不可用',
+  'commit-message': 'Commit message',
+  'changed-file': 'Changed file',
+  'changed-symbol': 'Changed symbol',
+  'edge-change': 'Dependency edge',
+  'risk-tag': 'Risk tag',
+  'entry-point': 'Entry point',
+  'code-diff': 'Code diff',
+  'delta-summary': 'Delta summary',
+  'delta-unavailable': 'Delta unavailable',
 };
 
 const EVOLUTION_LABEL: Record<string, string> = {
-  before: '变更前',
-  candidate: '候选引入',
-  after: '之后',
-  current: '当前分支',
-};
-
-const CONFIDENCE_LABEL: Record<string, string> = {
-  low: '低',
-  medium: '中',
-  high: '高',
+  before: 'Before',
+  candidate: 'Candidate',
+  after: 'After',
+  current: 'Current',
 };
 
 function confidenceHint(level: string): string {
   switch (level) {
     case 'high':
-      return '与问题描述匹配度较高，建议优先在 Delta View 验证该提交。';
+      return 'Strong match to your question; verify in Delta View first.';
     case 'medium':
-      return '存在一定信号，建议结合候选列表与 diff 交叉确认。';
+      return 'Moderate signals; cross-check candidates and diffs.';
     default:
-      return '历史较短或信号较弱，结论仅供参考，请多看证据与 diff。';
+      return 'Weak or short history; treat as directional only.';
   }
 }
 
@@ -44,9 +50,9 @@ function formatProviderNote(result: TraceAnswer): string | null {
   const p = result.provider;
   if (!p?.used) return null;
   if (p.nonAuthoritativeText) {
-    return '模型输出未通过校验，页面展示的是确定性分析结果。';
+    return 'Model output failed validation; showing deterministic analysis only.';
   }
-  return `已使用 ${p.type}${p.model ? ` (${p.model})` : ''} 辅助润色结论；证据仍以结构比对为准。`;
+  return `Refined with ${p.type}${p.model ? ` (${p.model})` : ''}; evidence and Delta verification remain authoritative.`;
 }
 
 function groupEvidenceByCommit(evidence: TraceEvidenceItem[]): Map<string, TraceEvidenceItem[]> {
@@ -100,7 +106,7 @@ export default function TraceViewPage() {
       setResult(cached.result);
       setRestored(true);
     } else if (candidate) {
-      setQuestion(`哪个提交最可能引入与 ${candidate.slice(0, 7)} 相关的问题？`);
+      setQuestion(`Which commit likely introduced an issue related to ${candidate.slice(0, 7)}?`);
     }
   }, [repoId, candidate]);
 
@@ -132,7 +138,7 @@ export default function TraceViewPage() {
     } catch (err) {
       setResult(null);
       if (repoId) clearTraceSession(repoId);
-      setError(err instanceof Error ? err.message : 'Trace 失败');
+      setError(err instanceof Error ? err.message : 'Trace failed');
     } finally {
       setLoading(false);
     }
@@ -168,234 +174,239 @@ export default function TraceViewPage() {
   }, [result]);
 
   return (
-    <div className="page trace-page">
-      <h1>Trace View</h1>
-      <p className="lead">
-        根据你的问题描述，在提交历史里找出<strong>最可能引入变更的 commit</strong>，并给出可验证的证据。点击「在
-        Delta 中验证」可查看该提交相对父提交的结构 diff。
-      </p>
+    <div className="page">
+      <PageHeader
+        title="Trace View"
+        description="Find commits that may have introduced a behavior change from your description, with evidence you can verify in Delta View."
+      />
 
       {restored && result && (
-        <div className="alert success trace-restored-banner">
-          已恢复上次的 Trace 结果（从 Delta 或其他页面返回不会丢失）。
-        </div>
+        <Alert variant="success">Restored your previous trace results (navigation-safe).</Alert>
       )}
 
-      <div className="card">
-        <label htmlFor="trace-question">问题描述</label>
-        <textarea
-          id="trace-question"
-          rows={3}
-          placeholder="例如：登录回调后跳转失败是从哪次提交开始的？"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-        />
-        <div className="row">
-          <label>
-            分支
-            <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">默认分支</option>
+      <Card>
+        <FormField label="Issue description" htmlFor="trace-question">
+          <TextArea
+            id="trace-question"
+            rows={3}
+            placeholder="e.g. When did login redirect start failing after the OAuth callback?"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+          />
+        </FormField>
+        <div className="form-row">
+          <FormField label="Branch">
+            <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
+              <option value="">Default branch</option>
               {branches.map((b) => (
                 <option key={b} value={b}>
                   {b}
                 </option>
               ))}
-            </select>
-          </label>
-          <label>
-            扫描提交数
-            <select value={String(commitLimit)} onChange={(e) => setCommitLimit(Number(e.target.value))}>
+            </Select>
+          </FormField>
+          <FormField label="Commits to scan">
+            <Select value={String(commitLimit)} onChange={(e) => setCommitLimit(Number(e.target.value))}>
               <option value="30">30</option>
               <option value="50">50</option>
               <option value="80">80</option>
               <option value="120">120</option>
-            </select>
-          </label>
-          <label>
-            附带 diff 证据
-            <select
+            </Select>
+          </FormField>
+          <FormField label="Include diff evidence">
+            <Select
               value={includeDiffEvidence ? 'yes' : 'no'}
               onChange={(e) => setIncludeDiffEvidence(e.target.value === 'yes')}
             >
-              <option value="yes">是</option>
-              <option value="no">否</option>
-            </select>
-          </label>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </Select>
+          </FormField>
         </div>
-        <div className="row">
-          <button type="button" className="primary-btn" onClick={runTrace} disabled={loading || !question.trim()}>
-            {loading ? '分析中…' : '开始 Trace'}
-          </button>
+        <div className="btn-row">
+          <Button variant="primary" onClick={runTrace} disabled={loading || !question.trim()}>
+            {loading ? 'Tracing…' : 'Run trace'}
+          </Button>
           {result && (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => {
                 setResult(null);
                 setRestored(false);
                 if (repoId) clearTraceSession(repoId);
               }}
             >
-              清除结果
-            </button>
+              Clear results
+            </Button>
           )}
         </div>
-      </div>
+      </Card>
 
-      {error && <div className="alert error">{error}</div>}
+      {error && <Alert variant="error">{error}</Alert>}
 
       {result && (
         <>
-          <section className="card trace-summary-card">
-            <h2>结论</h2>
-            <p className="trace-direct-answer">{result.directAnswer}</p>
-            <div className="trace-meta-row">
-              <span>
-                置信度：<strong>{CONFIDENCE_LABEL[result.confidence] ?? result.confidence}</strong>
-              </span>
-              <span className="hint">{confidenceHint(result.confidence)}</span>
-            </div>
-            {result.mostLikelyCommit && (
-              <div className="trace-likely-commit">
-                <strong>{result.mostLikelyCommit.shortHash}</strong>
-                <span className="muted"> — {result.mostLikelyCommit.message}</span>
-                {topCandidate?.previousCommitHash && (
-                  <button
-                    type="button"
-                    className="primary-btn trace-delta-cta"
+          <Card className="panel-highlight">
+            <CardHeader title="Conclusion" />
+            <div className="trace-summary-layout">
+              <div>
+                <p className="trace-direct-answer">{result.directAnswer}</p>
+                <p className="hint">{confidenceHint(result.confidence)}</p>
+                {result.mostLikelyCommit && (
+                  <p style={{ marginTop: '0.75rem' }}>
+                    <Mono>{result.mostLikelyCommit.shortHash}</Mono>
+                    <span className="hint"> — {result.mostLikelyCommit.message}</span>
+                  </p>
+                )}
+                {providerNote && <p className="hint" style={{ marginTop: '0.5rem' }}>{providerNote}</p>}
+              </div>
+              <div className="trace-summary-aside">
+                <Badge variant="accent">Confidence: {result.confidence}</Badge>
+                {topCandidate?.previousCommitHash && result.mostLikelyCommit && (
+                  <Button
+                    variant="primary"
                     onClick={() => openDelta(topCandidate.previousCommitHash!, result.mostLikelyCommit!.hash)}
                   >
-                    在 Delta 中验证此提交
-                  </button>
+                    Verify in Delta View
+                  </Button>
                 )}
               </div>
-            )}
-            {providerNote && <p className="hint">{providerNote}</p>}
+            </div>
             {providerWarnings.length > 0 && (
-              <div className="alert error trace-provider-warn">
-                <strong>AI 辅助未生效</strong>
-                <ul>
+              <Alert variant="warning" title="AI assist unavailable">
+                <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
                   {providerWarnings.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
-                <p className="hint">
-                  下方候选与证据仍可用。请确认本机可运行 <code>codex login</code>、终端能访问
-                  chatgpt.com，然后<strong>重启 dev:codedelta</strong> 再试；若仍失败，看错误里是否含
-                  ETIMEDOUT / ENOTFOUND 等代码。
+                <p className="form-hint" style={{ marginTop: '0.5rem' }}>
+                  Candidates and evidence below are still valid. Ensure <code className="mono">codex login</code>{' '}
+                  works on this machine, then restart <code className="mono">npm run dev:codedelta</code> and retry.
                 </p>
-              </div>
+              </Alert>
             )}
-          </section>
+          </Card>
 
-          <section className="card">
-            <h2>候选提交（按相关度）</h2>
-            <p className="hint">分数越高表示与问题描述的字面/结构信号越接近，不等于 100% 根因。</p>
-            <ul className="trace-candidate-list">
+          <Card>
+            <CardHeader
+              title="Candidate commits"
+              description="Higher score means stronger lexical/structural signals — not guaranteed root cause."
+            />
+            <ul className="candidate-list">
               {result.candidates.map((c, idx) => (
-                <li key={c.commit.hash} className={idx === 0 ? 'trace-candidate-top' : ''}>
-                  <div className="trace-candidate-head">
-                    <span className="trace-rank">#{idx + 1}</span>
-                    <strong>{c.commit.shortHash}</strong>
-                    <span className="trace-score">相关度 {c.relevanceScore}</span>
+                <li key={c.commit.hash} className={`candidate-item ${idx === 0 ? 'candidate-item-top' : ''}`}>
+                  <div className="candidate-head">
+                    <span className="candidate-rank">#{idx + 1}</span>
+                    <strong>
+                      <Mono>{c.commit.shortHash}</Mono>
+                    </strong>
+                    <span className="candidate-score">Score {c.relevanceScore}</span>
                   </div>
                   <p>{c.commit.message}</p>
                   <p className="hint">{c.reasons.join(' · ')}</p>
                   {c.changedFiles.length > 0 && (
                     <p className="hint">
-                      变更文件：{c.changedFiles.slice(0, 5).map((f) => f.path).join(', ')}
-                      {c.changedFiles.length > 5 ? ` 等 ${c.changedFiles.length} 个` : ''}
+                      Files: {c.changedFiles
+                        .slice(0, 5)
+                        .map((f) => f.path)
+                        .join(', ')}
+                      {c.changedFiles.length > 5 ? ` (+${c.changedFiles.length - 5} more)` : ''}
                     </p>
                   )}
                   {c.previousCommitHash ? (
-                    <button
-                      type="button"
-                      className="linkish"
-                      onClick={() => openDelta(c.previousCommitHash!, c.commit.hash)}
-                    >
-                      在 Delta 中对比：父提交 → 该提交
-                    </button>
+                    <Button variant="link" onClick={() => openDelta(c.previousCommitHash!, c.commit.hash)}>
+                      Compare parent → this commit in Delta
+                    </Button>
                   ) : (
-                    <p className="hint">无父提交，无法做 previous → candidate 对比。</p>
+                    <p className="hint">No parent commit for structural comparison.</p>
                   )}
                 </li>
               ))}
             </ul>
-          </section>
+          </Card>
 
-          <details className="card trace-details">
-            <summary>变更时间线</summary>
-            <ul className="file-list">
-              {result.evolution.map((s, i) => (
-                <li key={`${s.label}-${i}`}>
-                  <strong>{EVOLUTION_LABEL[s.label] ?? s.label}</strong>
-                  {s.commitHash ? ` (${s.commitHash.slice(0, 7)})` : ''} — {s.summary}
-                </li>
-              ))}
-            </ul>
+          <details className="card details-card">
+            <summary>Change timeline</summary>
+            <div className="details-body">
+              <ul className="file-list">
+                {result.evolution.map((s, i) => (
+                  <li key={`${s.label}-${i}`}>
+                    <strong>{EVOLUTION_LABEL[s.label] ?? s.label}</strong>
+                    {s.commitHash ? ` (${s.commitHash.slice(0, 7)})` : ''} — {s.summary}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </details>
 
-          <details className="card trace-details">
+          <details className="card details-card">
             <summary>
-              影响范围概览（{result.impactRadius.files.length} 文件 ·{' '}
-              {result.impactRadius.symbols.length} 符号）
+              Impact overview ({result.impactRadius.files.length} files · {result.impactRadius.symbols.length}{' '}
+              symbols)
             </summary>
-            <p className="hint">
-              风险标签：{result.impactRadius.riskTags.join(', ') || '无'}
-            </p>
-            <p className="hint">
-              入口点：{result.impactRadius.entryPoints.slice(0, 8).join(', ') || '未检测到'}
-            </p>
+            <div className="details-body">
+              <p className="hint">Risk tags: {result.impactRadius.riskTags.join(', ') || 'none'}</p>
+              <p className="hint">
+                Entry points: {result.impactRadius.entryPoints.slice(0, 8).join(', ') || 'none detected'}
+              </p>
+            </div>
           </details>
 
           {(userFacingUncertainty.length > 0 || result.suggestedNextChecks.length > 0) && (
-            <details className="card trace-details" open>
-              <summary>不确定性与建议</summary>
-              {userFacingUncertainty.length > 0 && (
-                <ul className="file-list">
-                  {userFacingUncertainty.map((u, i) => (
-                    <li key={i}>{u}</li>
-                  ))}
-                </ul>
-              )}
-              {result.suggestedNextChecks.length > 0 && (
-                <>
-                  <h3>建议下一步</h3>
+            <details className="card details-card" open>
+              <summary>Uncertainty and next steps</summary>
+              <div className="details-body">
+                {userFacingUncertainty.length > 0 && (
                   <ul className="file-list">
-                    {result.suggestedNextChecks.map((s, i) => (
-                      <li key={i}>{s}</li>
+                    {userFacingUncertainty.map((u, i) => (
+                      <li key={i}>{u}</li>
                     ))}
                   </ul>
-                </>
-              )}
+                )}
+                {result.suggestedNextChecks.length > 0 && (
+                  <>
+                    <h3>Suggested checks</h3>
+                    <ul className="file-list">
+                      {result.suggestedNextChecks.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
             </details>
           )}
 
-          <details className="card trace-details">
-            <summary>证据明细（{result.evidence.length} 条，供核对）</summary>
-            <p className="hint">每条证据对应一个 commit；需要代码级细节时请用 Delta 打开 diff。</p>
-            {Array.from(evidenceByCommit.entries()).map(([hash, items]: [string, TraceEvidenceItem[]]) => (
-              <div key={hash} className="trace-evidence-group">
-                <h3>{hash.slice(0, 7)}</h3>
-                <ul className="file-list compact">
-                  {items.map((ev) => (
-                    <li key={ev.id}>
-                      <span className="trace-ev-kind">{EVIDENCE_KIND_LABEL[ev.kind] ?? ev.kind}</span>
-                      {' — '}
-                      {ev.title}
-                      {ev.file && <span className="muted"> ({ev.file})</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <details className="card details-card">
+            <summary>Evidence details ({result.evidence.length} items)</summary>
+            <div className="details-body">
+              <p className="hint">Each item maps to a commit. Open Delta for code-level verification.</p>
+              {Array.from(evidenceByCommit.entries()).map(([hash, items]: [string, TraceEvidenceItem[]]) => (
+                <div key={hash} className="evidence-group">
+                  <h3>
+                    <Mono>{hash.slice(0, 7)}</Mono>
+                  </h3>
+                  <ul className="file-list">
+                    {items.map((ev) => (
+                      <li key={ev.id}>
+                        <span className="evidence-kind">{EVIDENCE_KIND_LABEL[ev.kind] ?? ev.kind}</span>
+                        {' — '}
+                        {ev.title}
+                        {ev.file && <span className="hint"> ({ev.file})</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </details>
         </>
       )}
 
       {!result && !loading && !error && (
-        <p className="muted">
-          输入具体问题后点击「开始 Trace」。也可从{' '}
-          <Link to={`/repos/${repoId}/timeline`}>Commit Timeline</Link> 进入并带上候选 commit。
+        <p className="hint">
+          Enter a specific question and run trace. You can also start from{' '}
+          <Link to={`/repos/${repoId}/timeline`}>Commit Timeline</Link>.
         </p>
       )}
     </div>

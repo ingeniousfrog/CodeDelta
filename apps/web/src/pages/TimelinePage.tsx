@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type ChangedFile, type CommitDetail, type CommitInfo, type RepoRef } from '../api/client';
+import { Alert, Button, Card, FormField, Mono, PageHeader, Select } from '../components/ui';
 
 export default function TimelinePage() {
   const { repoId } = useParams<{ repoId: string }>();
@@ -15,13 +16,10 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadCommits = useCallback(
-    async (id: string, b: string) => {
-      const list = await api.listCommits(id, b);
-      setCommits(list);
-    },
-    [],
-  );
+  const loadCommits = useCallback(async (id: string, b: string) => {
+    const list = await api.listCommits(id, b);
+    setCommits(list);
+  }, []);
 
   useEffect(() => {
     if (!repoId) return;
@@ -83,65 +81,80 @@ export default function TimelinePage() {
     navigate(`/repos/${repoId}/trace?candidate=${candidate}`);
   }
 
-  if (loading) return <div className="page"><p className="muted">Loading…</p></div>;
-  if (error) return <div className="page"><div className="alert error">{error}</div></div>;
+  if (loading) {
+    return (
+      <div className="page">
+        <p className="hint">Loading…</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="page">
+        <Alert variant="error">{error}</Alert>
+      </div>
+    );
+  }
   if (!repo || !repoId) return null;
 
   return (
     <div className="page">
-      <h1>Commit Timeline</h1>
-      <p className="lead">
-        <strong>{repo.input}</strong>
-        <span className="muted"> · {repo.source}</span>
-      </p>
+      <PageHeader
+        title="Commit Timeline"
+        description={`${repo.input} · ${repo.source}`}
+        actions={
+          <FormField label="Branch">
+            <Select value={branch} onChange={(e) => setBranch(e.target.value)} style={{ minWidth: 160 }}>
+              {branches.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        }
+      />
 
-      <div className="toolbar">
-        <label>
-          Branch
-          <select value={branch} onChange={(e) => setBranch(e.target.value)}>
-            {branches.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="split">
-        <table className="commits-table">
-          <thead>
-            <tr>
-              <th>Hash</th>
-              <th>Message</th>
-              <th>Author</th>
-              <th>Date</th>
-              <th>Files</th>
-            </tr>
-          </thead>
-          <tbody>
-            {commits.map((c) => (
-              <tr
-                key={c.hash}
-                className={selected?.hash === c.hash ? 'selected' : ''}
-                onClick={() => selectCommit(c.hash)}
-              >
-                <td><code>{c.shortHash}</code></td>
-                <td>{c.message}</td>
-                <td>{c.author}</td>
-                <td>{new Date(c.date).toLocaleString()}</td>
-                <td>{c.changedFilesCount}</td>
+      <div className="split-layout">
+        <Card style={{ marginBottom: 0, padding: 0, overflow: 'hidden' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Hash</th>
+                <th>Message</th>
+                <th>Author</th>
+                <th>Date</th>
+                <th>Files</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {commits.map((c) => (
+                <tr
+                  key={c.hash}
+                  className={selected?.hash === c.hash ? 'selected' : ''}
+                  onClick={() => selectCommit(c.hash)}
+                >
+                  <td>
+                    <Mono>{c.shortHash}</Mono>
+                  </td>
+                  <td>{c.message}</td>
+                  <td>{c.author}</td>
+                  <td>{new Date(c.date).toLocaleString()}</td>
+                  <td>{c.changedFilesCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
 
-        <aside className="detail-panel">
+        <aside className="sticky-panel">
           {selected ? (
             <>
-              <h2>{selected.shortHash}</h2>
+              <h2>
+                <Mono>{selected.shortHash}</Mono>
+              </h2>
               <p>{selected.message}</p>
-              <dl className="meta">
+              <dl className="meta-grid">
                 <dt>Author</dt>
                 <dd>{selected.author}</dd>
                 <dt>Date</dt>
@@ -154,36 +167,36 @@ export default function TimelinePage() {
               <ul className="file-list">
                 {selected.changedFiles.map((f: ChangedFile) => (
                   <li key={f.path}>
-                    <span className={`status status-${f.status}`}>{f.status[0]?.toUpperCase()}</span>
-                    {f.path}
+                    <span className="status-badge">{f.status}</span> {f.path}
                   </li>
                 ))}
               </ul>
 
-              <div className="actions">
-                <button
-                  type="button"
+              <div className="btn-row">
+                <Button
+                  variant="primary"
+                  size="sm"
                   disabled={!selected.parents[0]}
-                  title={selected.parents[0] ? 'Compare this commit with its parent' : 'Root commit has no parent'}
+                  title={selected.parents[0] ? 'Compare with parent commit' : 'Root commit has no parent'}
                   onClick={() => {
                     if (selected.parents[0]) openDelta(selected.parents[0], selected.hash);
                   }}
                 >
-                  Compare with previous commit
-                </button>
-                <button type="button" onClick={() => openTrace(selected.hash)}>
+                  Open in Delta View
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => openTrace(selected.hash)}>
                   Open in Trace View
-                </button>
+                </Button>
               </div>
             </>
           ) : (
-            <p className="muted">Select a commit to view details and quick actions.</p>
+            <p className="hint">Select a commit to view details and quick actions.</p>
           )}
         </aside>
       </div>
 
       <p className="footer-note">
-        Need another repo? <Link to="/import">Import again</Link>
+        Need another repository? <Link to="/import">Import again</Link>
       </p>
     </div>
   );

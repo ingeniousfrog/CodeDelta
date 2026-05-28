@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import App from './App';
+import AppShell from './components/AppShell';
 import ImportPage from './pages/ImportPage';
 import TimelinePage from './pages/TimelinePage';
 import DeltaViewPage from './pages/DeltaViewPage';
@@ -9,7 +9,7 @@ import ProviderSettingsPage from './pages/ProviderSettingsPage';
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<App />}>
+      <Route path="/" element={<AppShell />}>
         <Route index element={<Navigate to="/import" replace />} />
         <Route path="import" element={<ImportPage />} />
         <Route path="repos/:repoId/timeline" element={<TimelinePage />} />

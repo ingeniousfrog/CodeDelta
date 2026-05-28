@@ -59,7 +59,7 @@ export function readCodexAuthStatus(): CodexAuthStatus {
       codexHome,
       authPath,
       defaultModel,
-      message: `未找到 ${authPath}。请在本机运行 codex login 后再试。`,
+      message: `No auth file found at ${authPath}. Run codex login on this machine and try again.`,
     };
   }
 
@@ -76,7 +76,7 @@ export function readCodexAuthStatus(): CodexAuthStatus {
         codexHome,
         authPath,
         defaultModel,
-        message: `auth.json 的 auth_mode 为 "${authMode ?? 'unknown'}"，当前仅支持 ChatGPT 登录（chatgpt）。`,
+        message: `auth.json has auth_mode "${authMode ?? 'unknown'}". Only ChatGPT login mode ("chatgpt") is supported.`,
       };
     }
     if (!data.tokens?.access_token) {
@@ -86,7 +86,7 @@ export function readCodexAuthStatus(): CodexAuthStatus {
         codexHome,
         authPath,
         defaultModel,
-        message: 'auth.json 中缺少 access_token。请运行 codex login 重新登录。',
+        message: 'auth.json is missing access_token. Run codex login to re-authenticate.',
       };
     }
     return {
@@ -95,7 +95,7 @@ export function readCodexAuthStatus(): CodexAuthStatus {
       codexHome,
       authPath,
       defaultModel,
-      message: '已检测到本机 Codex CLI 登录，可用于 Trace View。',
+      message: 'Local Codex CLI login detected and available for Trace View.',
     };
   } catch (err) {
     return {
@@ -103,7 +103,7 @@ export function readCodexAuthStatus(): CodexAuthStatus {
       codexHome,
       authPath,
       defaultModel,
-      message: `无法读取 auth.json：${err instanceof Error ? err.message : String(err)}`,
+      message: `Unable to read auth.json: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
@@ -141,7 +141,7 @@ async function refreshCodexTokens(refreshToken: string): Promise<{
       { timeoutMs: 30_000, retries: 2 },
     );
   } catch (err) {
-    throw new CodexAuthError(formatNetworkError(err, '刷新 Codex 登录令牌时网络失败'));
+    throw new CodexAuthError(formatNetworkError(err, 'Network failure while refreshing Codex auth token'));
   }
   const bodyText = await res.text();
   if (!res.ok) {
@@ -152,9 +152,9 @@ async function refreshCodexTokens(refreshToken: string): Promise<{
       /* ignore */
     }
     if (code === 'refresh_token_expired' || code === 'refresh_token_reused' || code === 'refresh_token_invalidated') {
-      throw new CodexAuthError(`刷新令牌已失效（${code}）。请运行 codex login 重新登录。`);
+      throw new CodexAuthError(`Refresh token is no longer valid (${code}). Run codex login to re-authenticate.`);
     }
-    throw new CodexAuthError(`刷新 Codex 令牌失败：HTTP ${res.status}`);
+    throw new CodexAuthError(`Failed to refresh Codex token: HTTP ${res.status}`);
   }
   return JSON.parse(bodyText) as {
     access_token?: string;
@@ -190,7 +190,7 @@ export async function borrowCodexCredentials(): Promise<CodexCredentials> {
   };
 
   if (data.auth_mode !== 'chatgpt') {
-    throw new CodexAuthError(`不支持的 auth_mode: ${data.auth_mode ?? 'unknown'}`);
+    throw new CodexAuthError(`Unsupported auth_mode: ${data.auth_mode ?? 'unknown'}`);
   }
 
   const tokens = data.tokens;
@@ -204,7 +204,7 @@ export async function borrowCodexCredentials(): Promise<CodexCredentials> {
 
   const refreshToken = tokens.refresh_token;
   if (!refreshToken) {
-    throw new CodexAuthError('access_token 已过期且无 refresh_token。请运行 codex login。');
+    throw new CodexAuthError('access_token expired and refresh_token is missing. Run codex login.');
   }
 
   const newTokens = await refreshCodexTokens(refreshToken);

@@ -1,23 +1,41 @@
 import { useEffect, useState } from 'react';
 import { api, type ModelProviderConfig, type ProviderKind } from '../api/client';
+import {
+  Alert,
+  Button,
+  Card,
+  CardHeader,
+  FormField,
+  PageHeader,
+  SelectableCard,
+  TextInput,
+} from '../components/ui';
 
 type CodexAuthStatus = Awaited<ReturnType<typeof api.getCodexAuthStatus>>;
 
 const PROVIDERS: { kind: ProviderKind; label: string; description: string }[] = [
-  { kind: 'none', label: 'No AI', description: 'Trace View 使用确定性候选与证据，不调用模型。' },
+  {
+    kind: 'none',
+    label: 'No AI',
+    description: 'Deterministic trace candidates and evidence only; no model calls.',
+  },
   {
     kind: 'codex-oauth',
     label: 'Codex OAuth',
-    description: '复用本机 Codex CLI 登录（~/.codex/auth.json，需先运行 codex login）。',
+    description: 'Reuse local Codex CLI login (~/.codex/auth.json). Run codex login first.',
   },
-  { kind: 'openai', label: 'OpenAI API key', description: '使用 OpenAI API 密钥调用 chat/completions。' },
+  {
+    kind: 'openai',
+    label: 'OpenAI API key',
+    description: 'Direct OpenAI chat/completions API.',
+  },
   {
     kind: 'openai-compatible',
     label: 'OpenAI-compatible',
-    description: '自定义兼容端点 + API key。',
+    description: 'Custom endpoint with an OpenAI-compatible API.',
   },
-  { kind: 'anthropic', label: 'Anthropic', description: '尚未实现。' },
-  { kind: 'ollama', label: 'Ollama', description: '尚未实现。' },
+  { kind: 'anthropic', label: 'Anthropic', description: 'Not implemented yet.' },
+  { kind: 'ollama', label: 'Ollama', description: 'Not implemented yet.' },
 ];
 
 const UNIMPLEMENTED: ProviderKind[] = ['anthropic', 'ollama'];
@@ -29,7 +47,7 @@ export default function ProviderSettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getProvider().then(setConfig).catch(() => setError('无法加载设置'));
+    api.getProvider().then(setConfig).catch(() => setError('Failed to load settings'));
   }, []);
 
   useEffect(() => {
@@ -43,7 +61,7 @@ export default function ProviderSettingsPage() {
     setError(null);
     setSaved(false);
     if (UNIMPLEMENTED.includes(config.kind)) {
-      setError('该提供商尚未实现，请选择 No AI、Codex OAuth 或 OpenAI。');
+      setError('This provider is not implemented yet. Choose No AI, Codex OAuth, or OpenAI.');
       return;
     }
     if (config.kind === 'codex-oauth' && codexStatus && !codexStatus.configured) {
@@ -55,115 +73,107 @@ export default function ProviderSettingsPage() {
       setConfig(updated);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '保存失败');
+      setError(err instanceof Error ? err.message : 'Save failed');
     }
   }
 
-  const showOpenAiFields =
-    config.kind === 'openai' || config.kind === 'openai-compatible';
+  const showOpenAiFields = config.kind === 'openai' || config.kind === 'openai-compatible';
   const showCodexFields = config.kind === 'codex-oauth';
 
   return (
     <div className="page">
-      <h1>Provider Settings</h1>
-      <p className="lead">
-        配置 Trace View 可选的语言模型。无 AI 模式下仍可使用完整确定性分析与证据链；模型输出为非权威补充。
-      </p>
+      <PageHeader
+        title="Provider Settings"
+        description="Optional language model for Trace View. Deterministic analysis always runs; model output is non-authoritative."
+      />
 
-      {error && <div className="alert error">{error}</div>}
-      {saved && <div className="alert success">设置已保存。</div>}
+      {error && <Alert variant="error">{error}</Alert>}
+      {saved && <Alert variant="success">Settings saved.</Alert>}
 
-      <div className="provider-list">
+      <Card>
+        <CardHeader title="Provider" description="Select how Trace View may call a model." />
         {PROVIDERS.map((p) => (
-          <label key={p.kind} className={`provider-option ${config.kind === p.kind ? 'selected' : ''}`}>
-            <input
-              type="radio"
-              name="provider"
-              checked={config.kind === p.kind}
-              onChange={() =>
-                setConfig({
-                  kind: p.kind,
-                  model:
-                    p.kind === 'codex-oauth' && codexStatus?.defaultModel
-                      ? codexStatus.defaultModel
-                      : config.model,
-                })
-              }
-              disabled={UNIMPLEMENTED.includes(p.kind)}
-            />
-            <div>
-              <strong>{p.label}</strong>
-              <p className="hint">{p.description}</p>
-            </div>
-          </label>
+          <SelectableCard
+            key={p.kind}
+            selected={config.kind === p.kind}
+            disabled={UNIMPLEMENTED.includes(p.kind)}
+            title={p.label}
+            description={p.description}
+            onSelect={() =>
+              setConfig({
+                kind: p.kind,
+                model:
+                  p.kind === 'codex-oauth' && codexStatus?.defaultModel
+                    ? codexStatus.defaultModel
+                    : config.model,
+              })
+            }
+          />
         ))}
-      </div>
+      </Card>
 
       {showCodexFields && (
-        <section className="card mt">
-          <h2>Codex 登录状态</h2>
+        <Card>
+          <CardHeader title="Codex login status" />
           {codexStatus ? (
-            <p className={codexStatus.configured ? 'hint' : 'alert error'}>{codexStatus.message}</p>
+            <p className="form-hint" style={{ display: 'flex', alignItems: 'center' }}>
+              <span className={`status-dot ${codexStatus.configured ? 'status-dot-ok' : 'status-dot-off'}`} />
+              {codexStatus.message}
+            </p>
           ) : (
-            <p className="hint">正在检测本机 Codex 配置…</p>
+            <p className="form-hint">Checking local Codex configuration…</p>
           )}
           {codexStatus && (
-            <p className="hint">
-              配置目录：<code>{codexStatus.codexHome}</code>
+            <p className="form-hint">
+              Config directory: <code className="mono">{codexStatus.codexHome}</code>
             </p>
           )}
-          <label>
-            Model（留空则使用 config.toml 中的 model）
-            <input
-              type="text"
+          <FormField label="Model" hint="Leave empty to use model from ~/.codex/config.toml">
+            <TextInput
               value={config.model ?? codexStatus?.defaultModel ?? ''}
               placeholder={codexStatus?.defaultModel ?? 'gpt-4o-mini'}
               onChange={(e) => setConfig({ ...config, model: e.target.value || undefined })}
             />
-          </label>
-          <p className="hint">
-            在终端执行 <code>codex login</code> 完成 ChatGPT 登录后，无需在此填写 API key。
+          </FormField>
+          <p className="form-hint">
+            Run <code className="mono">codex login</code> in your terminal; no API key is stored in CodeDelta.
           </p>
-        </section>
+        </Card>
       )}
 
       {showOpenAiFields && (
-        <section className="card mt">
-          <label>
-            API key
-            <input
+        <Card>
+          <CardHeader title="API credentials" />
+          <FormField label="API key">
+            <TextInput
               type="password"
               value={config.apiKey ?? ''}
               onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
               autoComplete="off"
             />
-          </label>
+          </FormField>
           {config.kind === 'openai-compatible' && (
-            <label>
-              Base URL
-              <input
-                type="text"
+            <FormField label="Base URL">
+              <TextInput
                 value={config.baseUrl ?? ''}
                 onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
                 placeholder="https://api.example.com/v1"
               />
-            </label>
+            </FormField>
           )}
-          <label>
-            Model
-            <input
-              type="text"
+          <FormField label="Model">
+            <TextInput
               value={config.model ?? ''}
               onChange={(e) => setConfig({ ...config, model: e.target.value })}
               placeholder="gpt-4o-mini"
             />
-          </label>
-        </section>
+          </FormField>
+        </Card>
       )}
 
-      <button type="button" className="mt" onClick={save}>
-        保存设置
-      </button>
+      <Button variant="primary" onClick={save}>
+        Save settings
+      </Button>
     </div>
   );
 }

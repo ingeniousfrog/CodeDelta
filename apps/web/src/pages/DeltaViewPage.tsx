@@ -8,6 +8,16 @@ import {
   type FileDiffResponse,
   type RepoRef,
 } from '../api/client';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  FormField,
+  PageHeader,
+  Select,
+} from '../components/ui';
 
 type TabId = 'files' | 'symbols' | 'edges' | 'metrics';
 type ContributorFactor =
@@ -17,10 +27,6 @@ type ContributorFactor =
   | 'affectedNodes'
   | 'riskTags'
   | 'entryPoints';
-
-function priorityClass(priority: 'high' | 'medium' | 'low'): string {
-  return `priority-${priority}`;
-}
 
 function contributorLabel(factor: ContributorFactor): string {
   switch (factor) {
@@ -41,6 +47,17 @@ function contributorLabel(factor: ContributorFactor): string {
   }
 }
 
+function impactBadgeVariant(severity: string): 'impact-low' | 'impact-medium' | 'impact-high' | 'impact-critical' {
+  if (severity === 'critical') return 'impact-critical';
+  if (severity === 'high') return 'impact-high';
+  if (severity === 'medium') return 'impact-medium';
+  return 'impact-low';
+}
+
+function priorityClass(priority: 'high' | 'medium' | 'low'): string {
+  return `priority-${priority}`;
+}
+
 function SymbolTable({
   title,
   rows,
@@ -52,11 +69,11 @@ function SymbolTable({
 }) {
   if (rows.length === 0) return null;
   return (
-    <section className="diff-section">
+    <section style={{ marginTop: '1rem' }}>
       <h3>
         {title} ({rows.length})
       </h3>
-      <table className="commits-table compact">
+      <table className="data-table">
         <thead>
           <tr>
             <th>Kind</th>
@@ -66,16 +83,16 @@ function SymbolTable({
         </thead>
         <tbody>
           {rows.slice(0, 100).map((r) => (
-            <tr key={r.id} className="clickable" onClick={() => onOpenFile(r.filePath)}>
+            <tr key={r.id} onClick={() => onOpenFile(r.filePath)}>
               <td>{r.kind}</td>
               <td>{r.name}</td>
-              <td className="muted">{r.filePath}</td>
+              <td className="hint">{r.filePath}</td>
             </tr>
           ))}
         </tbody>
       </table>
       {rows.length > 100 && <p className="hint">Showing 100 of {rows.length}</p>}
-      <p className="hint">TODO: symbol-to-hunk mapping (open file diff for now).</p>
+      <p className="hint">Symbol click opens file-level diff (symbol-to-hunk mapping planned).</p>
     </section>
   );
 }
@@ -95,20 +112,20 @@ function DiffModal({
 }) {
   if (!open) return null;
   return (
-    <div className="diff-modal-backdrop" onClick={onClose}>
-      <div className="diff-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="diff-modal-header">
-          <h3>File Diff</h3>
-          <button type="button" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>File diff</h3>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
-        {loading && <p className="muted">Loading diff...</p>}
-        {error && <div className="alert error">{error}</div>}
+        {loading && <p className="hint">Loading diff…</p>}
+        {error && <Alert variant="error">{error}</Alert>}
         {data && !loading && (
           <>
             <p>
-              <strong>{data.file}</strong> <span className="muted">({data.status})</span>
+              <strong>{data.file}</strong> <span className="hint">({data.status})</span>
             </p>
             <pre className="diff-pre">
               {data.patch.split('\n').map((line, idx) => {
@@ -212,8 +229,6 @@ export default function DeltaViewPage() {
 
   const baseIndex = commits.findIndex((c) => c.hash === base);
   const headIndex = commits.findIndex((c) => c.hash === head);
-  // Commits are listed newest -> oldest by default.
-  // Base(before) must be older than Head(after).
   const baseOptions = commits.filter((_, idx) => headIndex < 0 || idx > headIndex);
   const headOptions = commits.filter((_, idx) => baseIndex < 0 || idx < baseIndex);
   const visibleTabs: TabId[] = ['files', 'symbols', 'edges', 'metrics'];
@@ -228,84 +243,71 @@ export default function DeltaViewPage() {
   }, [result]);
 
   const fromTrace = searchParams.get('from') === 'trace';
+  const severity = result?.impact.explanation?.severity ?? 'low';
 
   return (
     <div className="page">
       {fromTrace && repoId && (
-        <p className="trace-back-row">
-          <Link to={`/repos/${repoId}/trace`} className="back-link">
-            ← 返回 Trace 结果
-          </Link>
-        </p>
+        <Link to={`/repos/${repoId}/trace`} className="back-link">
+          ← Back to Trace results
+        </Link>
       )}
-      <h1>Delta View</h1>
-      <p className="lead">
-        Commit-to-commit structural review for change scope, risk level, and review priority.
-      </p>
-      <div className="card intro-card">
-        <p className="hint">
-          Direction: <strong>Base (before)</strong> -&gt; <strong>Head (after)</strong>.
-        </p>
-        <p className="hint">
-          <strong>Symbols</strong> are structural entities (function/class/component/route/module),
-          not line-level text changes.
-        </p>
-        <p className="hint">Click files or symbols to open unified diff for code-level details.</p>
-      </div>
+
+      <PageHeader
+        title="Delta View"
+        description="Commit-to-commit structural review: change scope, risk level, and review priority. Base = before, Head = after."
+      />
 
       {repo && (
-        <p className="hint">
+        <p className="hint" style={{ marginBottom: '1rem' }}>
           Repository: <strong>{repo.input}</strong>
         </p>
       )}
 
-      <div className="toolbar delta-toolbar">
-        <label>
-          Base (Before / older commit)
-          <select value={base} onChange={(e) => setBase(e.target.value)}>
-            <option value="">Select commit...</option>
+      <div className="delta-toolbar">
+        <FormField label="Base (before / older)">
+          <Select value={base} onChange={(e) => setBase(e.target.value)}>
+            <option value="">Select commit…</option>
             {baseOptions.map((c) => (
               <option key={c.hash} value={c.hash}>
-                {c.shortHash} - {c.message.slice(0, 60)}
+                {c.shortHash} — {c.message.slice(0, 60)}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Head (After / newer commit)
-          <select value={head} onChange={(e) => setHead(e.target.value)}>
-            <option value="">Select commit...</option>
+          </Select>
+        </FormField>
+        <FormField label="Head (after / newer)">
+          <Select value={head} onChange={(e) => setHead(e.target.value)}>
+            <option value="">Select commit…</option>
             {headOptions.map((c) => (
               <option key={c.hash} value={c.hash}>
-                {c.shortHash} - {c.message.slice(0, 60)}
+                {c.shortHash} — {c.message.slice(0, 60)}
               </option>
             ))}
-          </select>
-        </label>
-        <button className="primary-btn" type="button" onClick={runCompare} disabled={loading || !base || !head}>
-          {loading ? 'Comparing...' : 'Compare'}
-        </button>
+          </Select>
+        </FormField>
+        <Button variant="primary" onClick={runCompare} disabled={loading || !base || !head}>
+          {loading ? 'Comparing…' : 'Compare'}
+        </Button>
       </div>
 
-      {error && <div className="alert error">{error}</div>}
+      {error && <Alert variant="error">{error}</Alert>}
 
       {result?.deltaSummary && (
-        <section className="card summary-card">
+        <Card className="panel-highlight">
           <h2>{result.deltaSummary.title}</h2>
           <ul className="overview-list">
             {result.deltaSummary.overview.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
-
           <div className="summary-grid">
             <div>
               <h3>Main areas</h3>
               <ul className="file-list">
                 {result.deltaSummary.mainAreas.map((a) => (
                   <li key={a.name}>
-                    <strong>{a.name}</strong> - {a.changedSymbols} symbols
-                    {a.riskTags.length > 0 && <span className="muted"> ({a.riskTags.join(', ')})</span>}
+                    <strong>{a.name}</strong> — {a.changedSymbols} symbols
+                    {a.riskTags.length > 0 && <span className="hint"> ({a.riskTags.join(', ')})</span>}
                   </li>
                 ))}
               </ul>
@@ -313,7 +315,7 @@ export default function DeltaViewPage() {
             <div>
               <h3>Risks</h3>
               <ul className="file-list">
-                {result.deltaSummary.risks.length === 0 && <li className="muted">No risk tags detected</li>}
+                {result.deltaSummary.risks.length === 0 && <li className="hint">No risk tags detected</li>}
                 {result.deltaSummary.risks.map((r) => (
                   <li key={r.tag}>
                     <strong>{r.tag}</strong>: {r.reason}
@@ -326,29 +328,27 @@ export default function DeltaViewPage() {
               <ul className="file-list">
                 {result.deltaSummary.reviewOrder.map((item) => (
                   <li key={item.file}>
-                    <button className="linkish" type="button" onClick={() => openFileDiff(item.file)}>
+                    <Button variant="link" onClick={() => openFileDiff(item.file)}>
                       {item.file}
-                    </button>{' '}
+                    </Button>{' '}
                     <span className={priorityClass(item.priority)}>[{item.priority}]</span>
-                    <div className="muted">{item.reason}</div>
+                    <div className="hint">{item.reason}</div>
                   </li>
                 ))}
               </ul>
             </div>
           </div>
-        </section>
+        </Card>
       )}
 
       {result?.impact && (
-        <section className="card">
-          <h2>Impact</h2>
+        <Card>
+          <CardHeader title="Impact" />
           <div className="impact-hero">
             <p className="impact-score">{result.impact.score}</p>
-            <span className={`impact-badge impact-${result.impact.explanation?.severity ?? 'low'}`}>
-              {result.impact.explanation?.severity ?? 'unknown'} impact
-            </span>
+            <Badge variant={impactBadgeVariant(severity)}>{severity} impact</Badge>
           </div>
-          <p className="hint impact-summary">{result.impact.explanation?.summary}</p>
+          <p className="hint">{result.impact.explanation?.summary}</p>
           {result.impact.explanation?.reasons && (
             <ul className="file-list">
               {result.impact.explanation.reasons.slice(0, 3).map((r) => (
@@ -356,29 +356,30 @@ export default function DeltaViewPage() {
               ))}
             </ul>
           )}
-          {result.impact.explanation?.topContributors && result.impact.explanation.topContributors.length > 0 && (
-            <>
-              <h3>Main contributors</h3>
-              <div className="contrib-chips">
-                {result.impact.explanation.topContributors.slice(0, 4).map((c) => (
-                  <span key={c.factor} className="contrib-chip">
-                    {contributorLabel(c.factor as ContributorFactor)}: {c.value}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
+          {result.impact.explanation?.topContributors &&
+            result.impact.explanation.topContributors.length > 0 && (
+              <>
+                <h3>Main contributors</h3>
+                <div className="chip-row">
+                  {result.impact.explanation.topContributors.slice(0, 4).map((c) => (
+                    <span key={c.factor} className="chip">
+                      {contributorLabel(c.factor as ContributorFactor)}: {c.value}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+        </Card>
       )}
 
       {result && (
-        <section className="card">
-          <div className="tab-row">
+        <Card>
+          <div className="segmented">
             {visibleTabs.map((t) => (
               <button
                 key={t}
                 type="button"
-                className={tab === t ? 'tab active' : 'tab'}
+                className={tab === t ? 'active' : ''}
                 onClick={() => setTab(t)}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -390,10 +391,10 @@ export default function DeltaViewPage() {
             <ul className="file-list">
               {result.graphDiff.changedFiles.map((f: ChangedFile) => (
                 <li key={`${f.status}-${f.path}`}>
-                  <button className="linkish" type="button" onClick={() => openFileDiff(f.path)}>
+                  <Button variant="link" onClick={() => openFileDiff(f.path)}>
                     {f.path}
-                  </button>{' '}
-                  <span className={`status status-${f.status}`}>{f.status}</span>
+                  </Button>{' '}
+                  <span className="status-badge">{f.status}</span>
                 </li>
               ))}
             </ul>
@@ -404,20 +405,15 @@ export default function DeltaViewPage() {
               <SymbolTable title="Added" rows={result.graphDiff.addedNodes} onOpenFile={openFileDiff} />
               <SymbolTable title="Removed" rows={result.graphDiff.removedNodes} onOpenFile={openFileDiff} />
               {result.graphDiff.modifiedNodes.length > 0 && (
-                <section className="diff-section">
+                <section style={{ marginTop: '1rem' }}>
                   <h3>Modified ({result.graphDiff.modifiedNodes.length})</h3>
                   <ul className="file-list">
                     {result.graphDiff.modifiedNodes.slice(0, 80).map((m) => (
                       <li key={m.after.id}>
-                        <button
-                          className="linkish"
-                          type="button"
-                          onClick={() => openFileDiff(m.after.filePath)}
-                        >
+                        <Button variant="link" onClick={() => openFileDiff(m.after.filePath)}>
                           {m.after.filePath}
-                        </button>{' '}
-                        - {m.after.name}{' '}
-                        <span className="muted">({m.changes.join(', ')})</span>
+                        </Button>{' '}
+                        — {m.after.name} <span className="hint">({m.changes.join(', ')})</span>
                       </li>
                     ))}
                   </ul>
@@ -427,20 +423,20 @@ export default function DeltaViewPage() {
           )}
 
           {tab === 'edges' && (
-            <section className="diff-section">
+            <section>
               <h3>Edge changes</h3>
               <p className="hint">
-                +{result.graphDiff.addedEdges.length} / -{result.graphDiff.removedEdges.length}
+                +{result.graphDiff.addedEdges.length} / −{result.graphDiff.removedEdges.length}
               </p>
               <ul className="file-list">
                 {result.graphDiff.addedEdges.slice(0, 40).map((e, i) => (
                   <li key={`a${i}`}>
-                    + {e.kind}: {e.source} -&gt; {e.target}
+                    + {e.kind}: {e.source} → {e.target}
                   </li>
                 ))}
                 {result.graphDiff.removedEdges.slice(0, 40).map((e, i) => (
                   <li key={`r${i}`}>
-                    - {e.kind}: {e.source} -&gt; {e.target}
+                    − {e.kind}: {e.source} → {e.target}
                   </li>
                 ))}
               </ul>
@@ -448,7 +444,7 @@ export default function DeltaViewPage() {
           )}
 
           {tab === 'metrics' && (
-            <dl className="meta">
+            <dl className="meta-grid">
               <dt>Changed files</dt>
               <dd>{result.graphDiff.changedFiles.length}</dd>
               <dt>Changed symbols</dt>
@@ -467,11 +463,11 @@ export default function DeltaViewPage() {
               </dd>
             </dl>
           )}
-        </section>
+        </Card>
       )}
 
       {!result && !loading && !error && (
-        <p className="muted">
+        <p className="hint">
           Select base and head commits, or open from{' '}
           <Link to={`/repos/${repoId}/timeline`}>Commit Timeline</Link>.
         </p>

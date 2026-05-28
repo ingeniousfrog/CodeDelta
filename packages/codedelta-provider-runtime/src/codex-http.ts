@@ -27,9 +27,9 @@ async function fetchOnce(url: string, init: RequestInit, timeoutMs: number): Pro
     return await fetch(url, { ...init, signal: controller.signal });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`${formatNetworkError(err, '请求超时')}（${timeoutMs / 1000}s）`);
+      throw new Error(`${formatNetworkError(err, 'Request timed out')} (${timeoutMs / 1000}s)`);
     }
-    throw new Error(formatNetworkError(err, '网络请求失败'));
+    throw new Error(formatNetworkError(err, 'Network request failed'));
   } finally {
     clearTimeout(timer);
   }
@@ -56,5 +56,5 @@ export async function fetchWithRetry(
     }
   }
 
-  throw lastError ?? new Error('网络请求失败');
+  throw lastError ?? new Error('Network request failed');
 }
