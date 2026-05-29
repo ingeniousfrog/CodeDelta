@@ -177,7 +177,7 @@ function copyWebDist() {
 function npmInstallProduction(nodeBin) {
   log('Installing production dependencies in staged runtime…');
   const npmCli = path.join(NODE_ROOT, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
-  const args = ['install', '--omit=dev', '--no-audit', '--no-fund'];
+  const args = ['install', '--omit=dev', '--install-links', '--no-audit', '--no-fund'];
   const r = spawnSync(nodeBin, [npmCli, ...args], {
     cwd: APP_ROOT,
     stdio: 'inherit',
@@ -189,6 +189,20 @@ function npmInstallProduction(nodeBin) {
   if (r.status !== 0) {
     throw new Error('npm install failed in staged runtime');
   }
+  verifyPhysicalWorkspaceDeps();
+}
+
+function verifyPhysicalWorkspaceDeps() {
+  const serverPkg = path.join(APP_ROOT, 'node_modules/@codedelta/server');
+  if (!fs.existsSync(serverPkg)) {
+    throw new Error('Missing @codedelta/server after staging npm install');
+  }
+  if (fs.lstatSync(serverPkg).isSymbolicLink()) {
+    throw new Error(
+      '@codedelta/server is still a symlink; bundled apps need `npm install --install-links`',
+    );
+  }
+  log('Verified physical @codedelta/* packages in node_modules');
 }
 
 function sleep(ms) {

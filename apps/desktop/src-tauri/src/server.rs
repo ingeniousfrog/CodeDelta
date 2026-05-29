@@ -33,9 +33,15 @@ fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .resource_dir()
         .map_err(|e| e.to_string())?;
-    let staged = resource.join("runtime");
-    if staged.join("node/bin/node").exists() {
-        return Ok(staged);
+    // Tauri copies `resources/runtime/` → `$RESOURCE/resources/runtime/`.
+    let candidates = [
+        resource.join("resources/runtime"),
+        resource.join("runtime"),
+    ];
+    for staged in candidates {
+        if staged.join("node/bin/node").exists() {
+            return Ok(staged);
+        }
     }
 
     #[cfg(debug_assertions)]
@@ -47,20 +53,32 @@ fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
 
-    Err(
-        "Bundled runtime not found. Run `npm run stage:desktop` from the repo root, then rebuild."
-            .into(),
-    )
+    Err(format!(
+        "Bundled runtime not found under {} (tried resources/runtime and runtime). Reinstall from a fresh build.",
+        resource.display()
+    ))
+}
+
+fn resolve_server_entry(runtime: &PathBuf) -> Result<PathBuf, String> {
+    let candidates = [
+        runtime.join("app/node_modules/@codedelta/server/dist/index.js"),
+        runtime.join("app/packages/codedelta-server/dist/index.js"),
+    ];
+    for path in candidates {
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+    Err(format!(
+        "Server entry missing under {} (node_modules and packages paths checked).",
+        runtime.display()
+    ))
 }
 
 fn spawn_bundled(app: &AppHandle) -> Result<Child, String> {
     let runtime = resolve_runtime_dir(app)?;
     let node = runtime.join("node/bin/node");
-    let server_js = runtime
-        .join("app/node_modules/@codedelta/server/dist/index.js");
-    if !server_js.exists() {
-        return Err(format!("Server entry missing: {}", server_js.display()));
-    }
+    let server_js = resolve_server_entry(&runtime)?;
 
     let web_dist = runtime.join("web-dist");
     let app_root = runtime.join("app");

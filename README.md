@@ -1,4 +1,7 @@
-# CodeDelta
+<h1 align="left">
+  <img src="docs/images/codedelta-app-icon.png" width="44" height="44" alt="CodeDelta icon" />
+  CodeDelta
+</h1>
 
 **Local-first, commit-aware structural code intelligence** — built on [CodeGraph](https://github.com/colbymchenry/codegraph).
 

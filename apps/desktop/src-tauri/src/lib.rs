@@ -15,7 +15,10 @@ pub fn run() {
             if let Some(hint) = server::port_in_use_hint() {
                 eprintln!("{hint}");
             }
-            server::start(app.handle())?;
+            if let Err(err) = server::start(app.handle()) {
+                eprintln!("CodeDelta startup failed: {err}");
+                return Err(err.into());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
