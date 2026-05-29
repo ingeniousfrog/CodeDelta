@@ -18,7 +18,8 @@ const APP_ROOT = path.join(RUNTIME_ROOT, 'app');
 const WEB_DIST = path.join(RUNTIME_ROOT, 'web-dist');
 const NODE_ROOT = path.join(RUNTIME_ROOT, 'node');
 
-const NODE_VERSION = process.env.CODEDELTA_NODE_VERSION ?? '20.19.2';
+// CodeGraph requires node:sqlite (Node.js 22.5+). Keep in sync with scripts/build-bundle.sh LTS line.
+const NODE_VERSION = process.env.CODEDELTA_NODE_VERSION ?? '22.19.0';
 const CODEDELTA_PACKAGES = [
   'codedelta-types',
   'codedelta-repo-manager',
@@ -97,9 +98,15 @@ async function ensureNodeBinary() {
   const tarName = `${base}.tar.gz`;
   const url = `https://nodejs.org/dist/v${NODE_VERSION}/${tarName}`;
   const nodeBin = path.join(NODE_ROOT, 'bin', 'node');
-  if (fs.existsSync(nodeBin)) {
-    log(`Reusing embedded Node at ${nodeBin}`);
+  const versionStamp = path.join(NODE_ROOT, '.node-version');
+  const stamped =
+    fs.existsSync(versionStamp) && fs.readFileSync(versionStamp, 'utf8').trim() === NODE_VERSION;
+  if (fs.existsSync(nodeBin) && stamped) {
+    log(`Reusing embedded Node ${NODE_VERSION} at ${nodeBin}`);
     return nodeBin;
+  }
+  if (fs.existsSync(nodeBin)) {
+    log(`Embedded Node version changed — re-downloading ${NODE_VERSION}`);
   }
   rmrf(NODE_ROOT);
   const tmpTar = path.join(RUNTIME_ROOT, tarName);
@@ -112,6 +119,7 @@ async function ensureNodeBinary() {
   if (!fs.existsSync(nodeBin)) {
     throw new Error(`Node binary missing after extract: ${nodeBin}`);
   }
+  fs.writeFileSync(versionStamp, `${NODE_VERSION}\n`);
   return nodeBin;
 }
 
@@ -210,7 +218,18 @@ function sleep(ms) {
 }
 
 function smokeTest(nodeBin) {
-  log('Smoke test: CodeGraph load + health endpoint');
+  log('Smoke test: node:sqlite + CodeGraph load + health endpoint');
+  const sqliteCheck = spawnSync(
+    nodeBin,
+    ['-e', "const { DatabaseSync } = require('node:sqlite'); new DatabaseSync(':memory:').close()"],
+    { cwd: APP_ROOT, stdio: 'inherit' },
+  );
+  if (sqliteCheck.status !== 0) {
+    throw new Error(
+      'Embedded Node lacks node:sqlite (need Node 22.5+). Bump CODEDELTA_NODE_VERSION in desktop-stage.mjs',
+    );
+  }
+
   const cgCheck = spawnSync(
     nodeBin,
     ['-e', "const m=require('./dist/index.js'); if(!m.default&&!m.CodeGraph) process.exit(1)"],

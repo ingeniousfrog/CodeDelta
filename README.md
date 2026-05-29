@@ -211,15 +211,15 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 
 ## Desktop (macOS)
 
-CodeDelta ships a **macOS desktop app** ([`apps/desktop/`](apps/desktop/)) — a Tauri 2 shell that bundles Node 20 and the API server. End users do not need a separate Node install.
+CodeDelta ships a **macOS desktop app** ([`apps/desktop/`](apps/desktop/)) — a Tauri 2 shell that bundles Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
 
 ### Download (Apple Silicon)
 
 Pre-built **unsigned** `.dmg` (arm64 / M1–M4):
 
-- [百度网盘](https://pan.baidu.com/s/16DL3nvpFA9FR6UsskqoFyA?pwd=frog) · 提取码: `frog`
+- [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog`
 
-Install: open the dmg → drag **CodeDelta** to Applications. If macOS blocks launch, right-click the app → **Open**. Requires **git** on `PATH`.
+Install: open the dmg → drag **CodeDelta** to Applications. If macOS blocks launch, right-click the app → **Open**, or run `xattr -cr /Applications/CodeDelta.app` (common after Baidu Netdisk download). Requires **git** on `PATH`.
 
 **Runtime data:** `~/Library/Application Support/CodeDelta` (repos, snapshots, settings).
 

@@ -70,7 +70,7 @@ export async function compareCommits(
     }
     if (err instanceof SnapshotEmptyError) {
       throw new CompareError(
-        'Repository produced an empty structural graph. This can happen when fallback extraction cannot parse the language yet. Please retry compare once; if it persists, use TS/JS repo or enable full CodeGraph extraction support for this language.',
+        'Repository produced an empty structural graph. CodeGraph indexing did not run or found no symbols, and the TS/JS fallback found no .ts/.js files. Retry once; on desktop ensure the bundled Node is 22.5+ (rebuild with npm run build:desktop). Python and other languages need CodeGraph, not fallback.',
         422,
       );
     }

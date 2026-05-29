@@ -126,7 +126,7 @@ Not implemented yet (planned):
 
 - [x] `@codedelta/server` static UI hosting + `CODEDELTA_MONOREPO_ROOT`
 - [x] Web boot screen (`/api/health` polling, git banner)
-- [x] `scripts/desktop-stage.mjs` — embedded Node 20 + production runtime
+- [x] `scripts/desktop-stage.mjs` — embedded Node 22+ (`node:sqlite`) + production runtime
 - [x] `apps/desktop` Tauri 2 shell (spawn/kill API, single instance, `127.0.0.1:3847`)
 - [x] Import page recent repositories
 - [x] `npm run dev:desktop` / `stage:desktop` / `build:desktop`
