@@ -1,0 +1,14 @@
+{
+  "name": "@codedelta/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CodeDelta desktop shell (macOS, Tauri 2)",
+  "scripts": {
+    "dev": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri dev",
+    "build:app": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0"
+  },
+  "license": "MIT"
+}

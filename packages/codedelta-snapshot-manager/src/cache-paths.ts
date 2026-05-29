@@ -31,5 +31,9 @@ export function readAnalyzerVersion(monorepoRoot: string): string {
 }
 
 export function resolveMonorepoRoot(): string {
+  const env = process.env.CODEDELTA_MONOREPO_ROOT;
+  if (env) {
+    return path.resolve(env);
+  }
   return path.resolve(__dirname, '../../..');
 }

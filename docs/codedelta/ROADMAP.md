@@ -122,6 +122,18 @@ Not implemented yet (planned):
 - [ ] Timeline-level persisted impact scores
 - [ ] Extended DeltaSource variants beyond commits
 
+## Phase Desktop — macOS app (MVP)
+
+- [x] `@codedelta/server` static UI hosting + `CODEDELTA_MONOREPO_ROOT`
+- [x] Web boot screen (`/api/health` polling, git banner)
+- [x] `scripts/desktop-stage.mjs` — embedded Node 20 + production runtime
+- [x] `apps/desktop` Tauri 2 shell (spawn/kill API, single instance, `127.0.0.1:3847`)
+- [x] Import page recent repositories
+- [x] `npm run dev:desktop` / `stage:desktop` / `build:desktop`
+- [ ] Apple code signing + notarization for public distribution
+- [ ] Windows / Linux desktop
+- [ ] Auto-update, menu bar quick open, drag-and-drop import
+
 ## Architecture snapshot
 
 ```mermaid

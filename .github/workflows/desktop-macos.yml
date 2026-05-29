@@ -1,0 +1,45 @@
+name: Desktop (macOS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/desktop/**'
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'scripts/desktop-stage.mjs'
+      - 'src/**'
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Stage desktop runtime
+        run: npm run stage:desktop
+
+      - name: Build desktop app
+        run: npm run build:app -w @codedelta/desktop
+
+      - name: Upload dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codedelta-macos-dmg
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+      # Optional: add APPLE_CERTIFICATE / notarytool steps when signing secrets are configured.

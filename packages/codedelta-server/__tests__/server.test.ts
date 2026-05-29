@@ -18,6 +18,25 @@ describe('codedelta-server (no git)', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.product).toBe('CodeDelta');
+    expect(res.body).toHaveProperty('gitAvailable');
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('serves static UI with SPA fallback', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codedelta-server-'));
+    const cacheRoot = path.join(tmpDir, '.codedelta');
+    const staticRoot = path.join(tmpDir, 'web');
+    fs.mkdirSync(staticRoot, { recursive: true });
+    fs.writeFileSync(path.join(staticRoot, 'index.html'), '<!DOCTYPE html><html><body>ui</body></html>');
+    const { app } = createApp({ cacheRoot, staticRoot });
+    const health = await request(app).get('/api/health');
+    expect(health.status).toBe(200);
+    const ui = await request(app).get('/');
+    expect(ui.status).toBe(200);
+    expect(ui.text).toContain('ui');
+    const spa = await request(app).get('/repos/foo/timeline');
+    expect(spa.status).toBe(200);
+    expect(spa.text).toContain('ui');
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 

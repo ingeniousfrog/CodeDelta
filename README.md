@@ -193,6 +193,7 @@ packages/
   codedelta-trace-engine/
   codedelta-provider-runtime/
 apps/web/                     # React UI
+apps/desktop/                 # macOS desktop shell (Tauri 2)
 ```
 
 Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md).
@@ -204,6 +205,34 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 - Codex: local CLI session only (no in-browser OAuth)
 - UI: tables/lists (no full graph canvas yet)
 - Symbol click opens **file** diff, not symbol-to-hunk mapping
+
+## Desktop (macOS)
+
+CodeDelta ships a **macOS desktop app** (`apps/desktop`) that bundles Node 20 and the API server — no separate Node install required for end users.
+
+**Requirements to build:** macOS (arm64 or x64), [Xcode Command Line Tools](https://developer.apple.com/xcode/resources/), [Rust 1.88+](https://rustup.rs/) (use `rustup`; Homebrew `cargo` alone may be too old), and repo dev dependencies (`npm ci`).
+
+```bash
+# One-time: stage embedded Node + server runtime (~200MB under apps/desktop/src-tauri/resources/runtime/)
+npm run stage:desktop
+
+# Build .app + .dmg (unsigned; Gatekeeper may prompt on first open)
+npm run build:desktop
+
+# Dev: API + Vite + Tauri window (uses localhost:5173 + :3847, not bundled runtime)
+npm run dev:desktop
+```
+
+**Runtime data:** `~/Library/Application Support/CodeDelta` (repos, snapshots, settings).
+
+**Git:** must be on `PATH` for import/compare/trace (the app shows a banner if `git` is missing).
+
+| Variable | Desktop default | Meaning |
+|----------|-----------------|---------|
+| `CODEDELTA_CACHE_DIR` | `~/Library/Application Support/CodeDelta` | Cache root (set by Tauri) |
+| `CODEDELTA_MONOREPO_ROOT` | bundled `runtime/app` | CodeGraph dist root |
+| `CODEDELTA_STATIC_DIR` | bundled `runtime/web-dist` | Web UI static files |
+| `CODEDELTA_DESKTOP` | `1` | Desktop mode flag |
 
 ## Development
 
@@ -222,6 +251,9 @@ Environment variables:
 |----------|---------|---------|
 | `CODEDELTA_CACHE_DIR` | `.codedelta/` | Cache root |
 | `CODEDELTA_PORT` | `3847` | API port |
+| `CODEDELTA_MONOREPO_ROOT` | (monorepo root) | CodeGraph dist root; required for desktop bundle |
+| `CODEDELTA_STATIC_DIR` | — | Serve web UI from this directory (desktop production) |
+| `CODEDELTA_DESKTOP` | — | When `1`, default cache dir on macOS is Application Support |
 | `CODEDELTA_SNAPSHOT_TIMEOUT_MS` | `120000` | Snapshot build timeout |
 | `CODEDELTA_SNAPSHOT_MAX_NODES` | `50000` | Snapshot node cap |
 

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, type RepoRef } from '../api/client';
 import {
   Alert,
   Button,
@@ -17,6 +17,14 @@ export default function ImportPage() {
   const [localPath, setLocalPath] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentRepos, setRecentRepos] = useState<RepoRef[]>([]);
+
+  useEffect(() => {
+    api
+      .listRepos()
+      .then(setRecentRepos)
+      .catch(() => setRecentRepos([]));
+  }, []);
 
   async function handleImport(source: 'github' | 'local', input: string) {
     if (!input.trim()) return;
@@ -40,6 +48,25 @@ export default function ImportPage() {
       />
 
       {error && <Alert variant="error">{error}</Alert>}
+
+      {recentRepos.length > 0 && (
+        <Card>
+          <CardHeader title="Recent repositories" description="Previously imported in this data directory." />
+          <ul className="recent-repos-list">
+            {recentRepos.map((repo) => (
+              <li key={repo.id}>
+                <Button
+                  variant="secondary"
+                  disabled={loading}
+                  onClick={() => navigate(`/repos/${repo.id}/timeline`)}
+                >
+                  {repo.input}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="page-grid-2">
         <Card>

@@ -1,0 +1,60 @@
+.boot-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--bg);
+}
+
+.boot-card {
+  width: min(420px, 100%);
+  padding: var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.boot-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.boot-message {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.boot-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.boot-git-banner {
+  padding: var(--space-2) var(--space-6);
+  background: #fff8e6;
+  border-bottom: 1px solid #e6d9a8;
+  color: #6b5700;
+  font-size: 0.875rem;
+}
+
+.recent-repos-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.recent-repos-list li button {
+  width: 100%;
+  text-align: left;
+  justify-content: flex-start;
+}

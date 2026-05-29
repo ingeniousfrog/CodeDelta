@@ -28,7 +28,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: () => request<{ status: string; product: string }>('/api/health'),
+  health: () =>
+    request<{ status: string; product: string; gitAvailable?: boolean }>('/api/health'),
 
   listRepos: () => request<RepoRef[]>('/api/repos'),
 
