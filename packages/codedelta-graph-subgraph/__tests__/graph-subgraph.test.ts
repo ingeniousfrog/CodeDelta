@@ -107,6 +107,20 @@ describe('buildPanoramaGraph', () => {
     expect(graph.nodes.length).toBeGreaterThan(0);
     expect(graph.nodes[0]?.position).toBeDefined();
   });
+
+  it('expands sparse route entries and builds entry catalog on overview', () => {
+    const route = node('src/r.ts::USE /api', { kind: 'route', name: 'USE /api' });
+    const router = node('src/r.ts::apiRouter');
+    const handler = node('src/r.ts::listUsers');
+    const snapshot = snap('c1', [route, router, handler], [
+      { source: route.id, target: router.id, kind: 'references' },
+      { source: router.id, target: handler.id, kind: 'calls' },
+    ]);
+    const graph = buildPanoramaGraph('repo1', snapshot, { maxDepth: 2 });
+    expect(graph.entryCatalog?.length).toBeGreaterThan(0);
+    expect(graph.nodes.length).toBeGreaterThan(1);
+    expect(graph.stats.effectiveDepth).toBeDefined();
+  });
 });
 
 describe('buildDeltaPanoramaGraph', () => {

@@ -88,12 +88,23 @@ function entryPriority(node: CodeNode): number {
 export function resolvePanoramaBudget(snapshotNodeCount: number): {
   maxNodes: number;
   entryLimit: number;
+  minPerRootNodes: number;
+  overviewDepthBonus: number;
+  sparseExpandLimit: number;
 } {
-  if (snapshotNodeCount >= 8000) return { maxNodes: 480, entryLimit: 15 };
-  if (snapshotNodeCount >= 3000) return { maxNodes: 360, entryLimit: 12 };
-  if (snapshotNodeCount >= 1000) return { maxNodes: 280, entryLimit: 10 };
-  if (snapshotNodeCount >= 300) return { maxNodes: 220, entryLimit: 8 };
-  return { maxNodes: 200, entryLimit: 6 };
+  if (snapshotNodeCount >= 8000) {
+    return { maxNodes: 600, entryLimit: 20, minPerRootNodes: 56, overviewDepthBonus: 1, sparseExpandLimit: 18 };
+  }
+  if (snapshotNodeCount >= 3000) {
+    return { maxNodes: 480, entryLimit: 16, minPerRootNodes: 48, overviewDepthBonus: 1, sparseExpandLimit: 16 };
+  }
+  if (snapshotNodeCount >= 1000) {
+    return { maxNodes: 360, entryLimit: 12, minPerRootNodes: 40, overviewDepthBonus: 1, sparseExpandLimit: 14 };
+  }
+  if (snapshotNodeCount >= 300) {
+    return { maxNodes: 280, entryLimit: 10, minPerRootNodes: 32, overviewDepthBonus: 0, sparseExpandLimit: 12 };
+  }
+  return { maxNodes: 200, entryLimit: 6, minPerRootNodes: 28, overviewDepthBonus: 0, sparseExpandLimit: 10 };
 }
 
 /**
@@ -229,6 +240,59 @@ export function buildCallTree(
   }
 
   return { nodeIds, edges: collected, truncated, roles };
+}
+
+/** When an entry tree is mostly a lone route/mount, pull in reference targets + one call hop. */
+export function expandSparseEntryTree(
+  snapshot: CodeGraphSnapshot,
+  tree: CallTreeResult,
+  rootId: string,
+  options: { maxExtra?: number; edgeKinds?: string[] } = {},
+): CallTreeResult {
+  const sparseThreshold = 4;
+  if (tree.nodeIds.size >= sparseThreshold) return tree;
+
+  const maxExtra = options.maxExtra ?? 12;
+  const edgeKinds = new Set(options.edgeKinds ?? DEFAULT_EDGE_KINDS);
+  const outgoing = buildOutgoing(snapshot.edges, edgeKinds);
+  const extraTargets = new Set<string>();
+
+  for (const { target } of outgoing.get(rootId) ?? []) {
+    if (!tree.nodeIds.has(target)) extraTargets.add(target);
+  }
+
+  for (const id of tree.nodeIds) {
+    if (id === rootId) continue;
+    for (const { target } of outgoing.get(id) ?? []) {
+      if (!tree.nodeIds.has(target)) extraTargets.add(target);
+    }
+  }
+
+  const toAdd = [...extraTargets].slice(0, maxExtra);
+  if (toAdd.length === 0) return tree;
+
+  const perTarget = Math.max(6, Math.floor(maxExtra / Math.max(1, toAdd.length)));
+  const extraTrees = toAdd.map((id) =>
+    buildCallTree(snapshot, id, { maxDepth: 2, maxNodes: perTarget, edgeKinds: options.edgeKinds }),
+  );
+  return mergeTrees([tree, ...extraTrees]);
+}
+
+function buildEntryCatalog(
+  snapshot: CodeGraphSnapshot,
+  entryIds: string[],
+  graphNodeIds: Set<string>,
+): Array<{ id: string; qualifiedName: string; kind: string; inGraph: boolean }> {
+  const nodes = nodeMap(snapshot);
+  return entryIds.map((id) => {
+    const node = nodes.get(id);
+    return {
+      id,
+      qualifiedName: node?.qualifiedName ?? id,
+      kind: node?.kind ?? 'function',
+      inGraph: graphNodeIds.has(id),
+    };
+  });
 }
 
 export function findPath(
@@ -602,13 +666,16 @@ export function buildPanoramaGraph(
   const entryLimit = options.entryLimit ?? budget.entryLimit;
   const edgeKinds = options.edgeKinds ?? DEFAULT_EDGE_KINDS;
   const nodesById = nodeMap(snapshot);
+  const isOverview = !options.rootId && !options.rootQuery;
+  const effectiveDepth = isOverview ? maxDepth + budget.overviewDepthBonus : maxDepth;
 
   let tree: CallTreeResult;
   let entryPoints: string[] = [];
+  let catalogEntryIds: string[] = [];
 
   if (options.rootId) {
     entryPoints = [options.rootId];
-    tree = buildCallTree(snapshot, options.rootId, { maxDepth, maxNodes, edgeKinds });
+    tree = buildCallTree(snapshot, options.rootId, { maxDepth: effectiveDepth, maxNodes, edgeKinds });
   } else if (options.rootQuery) {
     const resolved = resolveNodeQuery(snapshot, options.rootQuery);
     if (!resolved) {
@@ -623,17 +690,26 @@ export function buildPanoramaGraph(
       };
     }
     entryPoints = [resolved.id];
-    tree = buildCallTree(snapshot, resolved.id, { maxDepth, maxNodes, edgeKinds });
+    tree = buildCallTree(snapshot, resolved.id, { maxDepth: effectiveDepth, maxNodes, edgeKinds });
   } else {
-    entryPoints = detectEntryPoints(snapshot, { limit: entryLimit });
-    const perRootBudget = Math.max(40, Math.floor(maxNodes / Math.max(1, entryPoints.length)));
-    const trees = entryPoints.map((rootId) =>
-      buildCallTree(snapshot, rootId, {
-        maxDepth,
+    catalogEntryIds = detectEntryPoints(snapshot, { limit: entryLimit });
+    entryPoints = catalogEntryIds;
+    const perRootBudget = Math.max(
+      budget.minPerRootNodes,
+      Math.floor(maxNodes / Math.max(1, entryPoints.length)),
+    );
+    const trees = entryPoints.map((rootId) => {
+      let sub = buildCallTree(snapshot, rootId, {
+        maxDepth: effectiveDepth,
         maxNodes: perRootBudget,
         edgeKinds,
-      }),
-    );
+      });
+      sub = expandSparseEntryTree(snapshot, sub, rootId, {
+        maxExtra: budget.sparseExpandLimit,
+        edgeKinds,
+      });
+      return sub;
+    });
     tree = mergeTrees(trees);
   }
 
@@ -655,6 +731,11 @@ export function buildPanoramaGraph(
 
   panoramaNodes = layoutPanorama(panoramaNodes, panoramaEdges, entryPoints);
 
+  const entryCatalog =
+    catalogEntryIds.length > 0
+      ? buildEntryCatalog(snapshot, catalogEntryIds, tree.nodeIds)
+      : undefined;
+
   return {
     repoId,
     commit: snapshot.commitHash,
@@ -662,6 +743,7 @@ export function buildPanoramaGraph(
     nodes: panoramaNodes,
     edges: panoramaEdges,
     entryPoints,
+    entryCatalog,
     layout: 'layered',
     stats: {
       nodeCount: panoramaNodes.length,
@@ -669,6 +751,7 @@ export function buildPanoramaGraph(
       truncated: tree.truncated,
       snapshotNodeCount: snapshot.nodes.length,
       entrySurfaceCount: entryPoints.length,
+      effectiveDepth,
     },
     extractionMethod: snapshot.metadata?.extractionMethod,
   };

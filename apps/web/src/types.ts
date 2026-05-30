@@ -197,6 +197,13 @@ export interface PanoramaEdge {
   pathHighlight?: boolean;
 }
 
+export interface PanoramaEntryCatalogItem {
+  id: string;
+  qualifiedName: string;
+  kind: string;
+  inGraph: boolean;
+}
+
 export interface PanoramaGraph {
   repoId: string;
   commit?: string;
@@ -206,6 +213,7 @@ export interface PanoramaGraph {
   nodes: PanoramaNode[];
   edges: PanoramaEdge[];
   entryPoints: string[];
+  entryCatalog?: PanoramaEntryCatalogItem[];
   layout: 'tree' | 'layered';
   stats: {
     nodeCount: number;
@@ -213,6 +221,7 @@ export interface PanoramaGraph {
     truncated: boolean;
     snapshotNodeCount?: number;
     entrySurfaceCount?: number;
+    effectiveDepth?: number;
   };
   extractionMethod?: 'codegraph' | 'fallback';
   pathConnected?: boolean;

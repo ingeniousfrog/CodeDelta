@@ -325,6 +325,14 @@ export interface PanoramaEdge {
   pathHighlight?: boolean;
 }
 
+export interface PanoramaEntryCatalogItem {
+  id: string;
+  qualifiedName: string;
+  kind: string;
+  /** Whether this entry appears in the current subgraph. */
+  inGraph: boolean;
+}
+
 export interface PanoramaGraph {
   repoId: string;
   commit?: string;
@@ -334,6 +342,8 @@ export interface PanoramaGraph {
   nodes: PanoramaNode[];
   edges: PanoramaEdge[];
   entryPoints: string[];
+  /** Detected entry surfaces for overview navigation (large repos). */
+  entryCatalog?: PanoramaEntryCatalogItem[];
   layout: 'tree' | 'layered';
   stats: {
     nodeCount: number;
@@ -343,6 +353,8 @@ export interface PanoramaGraph {
     snapshotNodeCount?: number;
     /** Entry surfaces included in this overview. */
     entrySurfaceCount?: number;
+    /** Effective call depth used for this graph (may exceed user depth on large overviews). */
+    effectiveDepth?: number;
   };
   extractionMethod?: ExtractionMethod;
   pathConnected?: boolean;

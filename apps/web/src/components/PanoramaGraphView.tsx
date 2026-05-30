@@ -359,7 +359,14 @@ export default function PanoramaGraphView({
     graph &&
     !canGoToOverview &&
     (graph.stats.snapshotNodeCount ?? 0) >= 300 &&
-    graph.stats.nodeCount <= (graph.stats.entrySurfaceCount ?? 6) + 10;
+    graph.stats.nodeCount <= Math.max((graph.stats.entrySurfaceCount ?? 6) * 3, 24);
+
+  const showEntryCatalog =
+    graph?.entryCatalog &&
+    graph.entryCatalog.length > 0 &&
+    !canGoToOverview &&
+    onFocusEntry &&
+    (sparseOverview || graph.entryCatalog.length > 6);
 
   if (loading) {
     return <p className="hint panorama-status">Loading panorama…</p>;
@@ -391,10 +398,13 @@ export default function PanoramaGraphView({
               ? ` · ${graph.stats.snapshotNodeCount.toLocaleString()} indexed`
               : ''}
             {graph.stats.truncated ? ' · truncated — expand a node to go deeper' : ''}
+            {graph.stats.effectiveDepth && graph.stats.effectiveDepth > 3
+              ? ` · depth ${graph.stats.effectiveDepth} (large repo boost)`
+              : ''}
           </span>
           {sparseOverview && (
             <span className="hint panorama-overview-hint">
-              Overview shows top entry routes and components only — click{' '}
+              Overview shows top entry routes and components — pick an entry below or click{' '}
               <em>Expand from here</em> on a route or mount point to open its call tree.
             </span>
           )}
@@ -442,6 +452,25 @@ export default function PanoramaGraphView({
         </div>
       </div>
       {exportError && <p className="hint panorama-export-error">{exportError}</p>}
+
+      {showEntryCatalog && (
+        <div className="panorama-entry-sidebar">
+          <h4>Entry surfaces ({graph!.entryCatalog!.length})</h4>
+          <p className="hint panorama-entry-sidebar-hint">
+            Jump into a route, component, or exported handler.
+          </p>
+          <ul className="panorama-entry-list">
+            {graph!.entryCatalog!.map((entry) => (
+              <li key={entry.id} className={entry.inGraph ? 'panorama-entry-list-item--in-graph' : ''}>
+                <Button variant="link" onClick={() => onFocusEntry!(entry.qualifiedName)}>
+                  <span className="panorama-entry-kind">{entry.kind}</span>
+                  {entry.qualifiedName}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {impactedEntryPoints && impactedEntryPoints.length > 0 && onFocusEntry && (
         <div className="panorama-entry-sidebar">

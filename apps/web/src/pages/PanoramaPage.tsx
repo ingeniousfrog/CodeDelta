@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, type CommitInfo, type PanoramaGraph } from '../api/client';
 import PanoramaGraphView from '../components/PanoramaGraphView';
@@ -36,6 +36,26 @@ function orphanCommitOption(hash: string): CommitInfo {
   };
 }
 
+function buildPanoramaRequestKey(
+  commit: string,
+  depth: number,
+  root: string,
+  stack: string[],
+  traceMode: boolean,
+  traceSymbols: string | null,
+  traceEntryPoints: string | null,
+): string {
+  return [
+    commit,
+    depth,
+    root,
+    stack.join('>'),
+    traceMode ? 'trace' : '',
+    traceSymbols ?? '',
+    traceEntryPoints ?? '',
+  ].join('|');
+}
+
 export default function PanoramaPage() {
   const { repoId } = useParams<{ repoId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -53,6 +73,10 @@ export default function PanoramaPage() {
   const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const lastLoadedKeyRef = useRef('');
+  const loadGenerationRef = useRef(0);
+  const [refreshToken, setRefreshToken] = useState(0);
+
   const traceMode = searchParams.get('highlight') === 'trace';
   const fromTrace = searchParams.get('from') === 'trace';
   const fromDelta = searchParams.get('from') === 'delta';
@@ -69,69 +93,42 @@ export default function PanoramaPage() {
 
   const parentCommit = selectedCommit?.parents[0];
 
-  const loadPanorama = useCallback(
-    async (opts?: {
-      rootOverride?: string;
-      commitOverride?: string;
-      stackOverride?: string[];
-      depthOverride?: number;
-      resetStack?: boolean;
-    }) => {
-      if (!repoId) return;
-      const useRoot = opts?.rootOverride !== undefined ? opts.rootOverride : root;
-      const useCommit = opts?.commitOverride ?? commit;
-      const useDepth = opts?.depthOverride ?? depth;
-      let useStack = opts?.stackOverride ?? focusStack;
-
-      if (!useCommit) {
-        setError('Select a commit to analyze.');
-        return;
-      }
-
-      if (opts?.resetStack) {
-        useStack = [];
-        setFocusStack([]);
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        const params: Parameters<typeof api.getPanorama>[1] = {
-          commit: useCommit,
-          depth: useDepth,
-          root: useRoot.trim() || undefined,
-        };
-        if (traceMode) {
-          params.highlight = 'trace';
-          const symbols = searchParams.get('traceSymbols');
-          const entryPoints = searchParams.get('traceEntryPoints');
-          if (symbols) params.traceSymbols = symbols.split(',').filter(Boolean);
-          if (entryPoints) params.traceEntryPoints = entryPoints.split(',').filter(Boolean);
-        }
-        const data = await api.getPanorama(repoId, params);
-        setGraph(data);
-        setSearchParams((prev) => {
-          const next = new URLSearchParams(prev);
-          next.set('commit', useCommit);
-          next.delete('base');
-          next.delete('head');
-          next.set('depth', String(useDepth));
-          if (branch) next.set('branch', branch);
-          else next.delete('branch');
-          next.delete('root');
-          const path = serializeFocusPath(buildFocusTrail(useStack, useRoot));
-          if (path) next.set('focusPath', path);
-          else next.delete('focusPath');
-          return next;
-        });
-      } catch (err) {
-        setGraph(null);
-        setError(err instanceof Error ? err.message : 'Panorama failed');
-      } finally {
-        setLoading(false);
-      }
+  const syncPanoramaUrl = useCallback(
+    (params: { commit: string; depth: number; branch: string; stack: string[]; root: string }) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('commit', params.commit);
+        next.delete('base');
+        next.delete('head');
+        next.set('depth', String(params.depth));
+        if (params.branch) next.set('branch', params.branch);
+        else next.delete('branch');
+        next.delete('root');
+        const path = serializeFocusPath(buildFocusTrail(params.stack, params.root));
+        if (path) next.set('focusPath', path);
+        else next.delete('focusPath');
+        return prev.toString() === next.toString() ? prev : next;
+      });
     },
-    [repoId, commit, root, focusStack, depth, branch, traceMode, searchParams, setSearchParams],
+    [setSearchParams],
+  );
+
+  const navigateFocus = useCallback(
+    (stack: string[], nextRoot: string) => {
+      lastLoadedKeyRef.current = '';
+      setFocusStack(stack);
+      setRoot(nextRoot);
+      const activeCommit = resolveCommitFromParams(searchParams, commits);
+      if (!activeCommit) return;
+      syncPanoramaUrl({
+        commit: activeCommit,
+        depth: Number(searchParams.get('depth') ?? '3') || 3,
+        branch,
+        stack,
+        root: nextRoot,
+      });
+    },
+    [branch, commits, searchParams, syncPanoramaUrl],
   );
 
   useEffect(() => {
@@ -156,9 +153,7 @@ export default function PanoramaPage() {
               : (branchList[0] ?? r.defaultBranch);
         setBranch(initialBranch);
       } catch {
-        if (!cancelled) {
-          setBranches([]);
-        }
+        if (!cancelled) setBranches([]);
       }
     })();
 
@@ -177,14 +172,22 @@ export default function PanoramaPage() {
       .then((list) => {
         if (cancelled) return;
         setCommits(list);
-        const fromUrl = resolveCommitFromParams(searchParams, list);
-        setCommit((prev) => {
-          if (fromUrl && (list.some((c) => c.hash === fromUrl) || searchParams.get('commit'))) {
-            return fromUrl;
-          }
-          if (prev && list.some((c) => c.hash === prev)) return prev;
-          return list[0]?.hash ?? '';
-        });
+
+        const urlCommit = searchParams.get('commit')?.trim();
+        const head = searchParams.get('head')?.trim();
+        const direct = urlCommit || head;
+        const resolved =
+          direct && (list.some((c) => c.hash === direct) || urlCommit)
+            ? direct
+            : (list[0]?.hash ?? '');
+
+        if (resolved && resolved !== searchParams.get('commit')) {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set('commit', resolved);
+            return prev.toString() === next.toString() ? prev : next;
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setCommits([]);
@@ -197,135 +200,170 @@ export default function PanoramaPage() {
   }, [repoId, branch]);
 
   useEffect(() => {
-    const qDepth = searchParams.get('depth');
-    if (qDepth) setDepth(Number(qDepth) || 3);
-
     const qBranch = searchParams.get('branch');
     if (qBranch && branches.includes(qBranch) && qBranch !== branch) {
       setBranch(qBranch);
-      return;
     }
+  }, [searchParams, branches, branch]);
 
+  useEffect(() => {
+    const qDepth = searchParams.get('depth');
+    if (qDepth) {
+      const parsed = Number(qDepth) || 3;
+      if (parsed !== depth) setDepth(parsed);
+    }
+  }, [searchParams, depth]);
+
+  useEffect(() => {
     const qCommit = resolveCommitFromParams(searchParams, commits);
-    if (!repoId || commits.length === 0 || !qCommit) return;
+    if (!repoId || !branch || commits.length === 0 || !qCommit) return;
 
     const parsedFocus = resolveFocusFromSearchParams(searchParams);
-    const urlPath = searchParams.get('focusPath') ?? '';
-    const currentPath = serializeFocusPath(buildFocusTrail(focusStack, root)) ?? '';
+    const qDepth = Number(searchParams.get('depth') ?? '3') || 3;
+    const traceSymbols = searchParams.get('traceSymbols');
+    const traceEntryPoints = searchParams.get('traceEntryPoints');
+    const requestKey = buildPanoramaRequestKey(
+      qCommit,
+      qDepth,
+      parsedFocus.root,
+      parsedFocus.stack,
+      traceMode,
+      traceSymbols,
+      traceEntryPoints,
+    );
 
-    if (qCommit === commit && parsedFocus.root === root && urlPath === currentPath && graph) {
-      return;
-    }
+    if (requestKey === lastLoadedKeyRef.current) return;
 
     if (qCommit !== commit) setCommit(qCommit);
-    setFocusStack(parsedFocus.stack);
-    setRoot(parsedFocus.root);
+    if (parsedFocus.root !== root || parsedFocus.stack.join('>') !== focusStack.join('>')) {
+      setFocusStack(parsedFocus.stack);
+      setRoot(parsedFocus.root);
+    }
 
-    loadPanorama({
-      commitOverride: qCommit,
-      rootOverride: parsedFocus.root,
-      stackOverride: parsedFocus.stack,
-    });
+    const gen = ++loadGenerationRef.current;
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params: Parameters<typeof api.getPanorama>[1] = {
+          commit: qCommit,
+          depth: qDepth,
+          root: parsedFocus.root.trim() || undefined,
+        };
+        if (traceMode) {
+          params.highlight = 'trace';
+          if (traceSymbols) params.traceSymbols = traceSymbols.split(',').filter(Boolean);
+          if (traceEntryPoints) params.traceEntryPoints = traceEntryPoints.split(',').filter(Boolean);
+        }
+        const data = await api.getPanorama(repoId, params);
+        if (cancelled || gen !== loadGenerationRef.current) return;
+        setGraph(data);
+        lastLoadedKeyRef.current = requestKey;
+        syncPanoramaUrl({
+          commit: qCommit,
+          depth: qDepth,
+          branch,
+          stack: parsedFocus.stack,
+          root: parsedFocus.root,
+        });
+      } catch (err) {
+        if (cancelled || gen !== loadGenerationRef.current) return;
+        setGraph(null);
+        setError(err instanceof Error ? err.message : 'Panorama failed');
+      } finally {
+        if (!cancelled && gen === loadGenerationRef.current) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     repoId,
-    commits.length,
     branch,
-    searchParams.get('focusPath'),
+    commits,
+    traceMode,
     searchParams.get('commit'),
     searchParams.get('head'),
     searchParams.get('depth'),
-    searchParams.get('branch'),
+    searchParams.get('focusPath'),
+    searchParams.get('traceSymbols'),
+    searchParams.get('traceEntryPoints'),
+    refreshToken,
   ]);
 
   const handleBranchChange = useCallback(
-    async (nextBranch: string) => {
+    (nextBranch: string) => {
       if (!repoId || nextBranch === branch) return;
+      lastLoadedKeyRef.current = '';
       setBranch(nextBranch);
       setFocusStack([]);
       setRoot('');
+      setGraph(null);
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.set('branch', nextBranch);
+        next.delete('commit');
         next.delete('focusPath');
-        return next;
+        return prev.toString() === next.toString() ? prev : next;
       });
-      try {
-        const list = await api.listCommits(repoId, nextBranch, 80);
-        setCommits(list);
-        const tip = list[0]?.hash ?? '';
-        setCommit(tip);
-        if (tip) {
-          await loadPanorama({
-            commitOverride: tip,
-            rootOverride: '',
-            stackOverride: [],
-            resetStack: true,
-          });
-        } else {
-          setGraph(null);
-        }
-      } catch {
-        setCommits([]);
-        setCommit('');
-        setGraph(null);
-      }
     },
-    [repoId, branch, loadPanorama, setSearchParams],
+    [repoId, branch, setSearchParams],
   );
 
   const handleCommitChange = useCallback(
     (nextCommit: string) => {
-      setCommit(nextCommit);
+      if (nextCommit === commit) return;
+      lastLoadedKeyRef.current = '';
       setFocusStack([]);
       setRoot('');
-      if (nextCommit) {
-        loadPanorama({
-          commitOverride: nextCommit,
-          rootOverride: '',
-          stackOverride: [],
-          resetStack: true,
-        });
-      } else {
-        setGraph(null);
-      }
+      setGraph(null);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (nextCommit) next.set('commit', nextCommit);
+        else next.delete('commit');
+        next.delete('focusPath');
+        return prev.toString() === next.toString() ? prev : next;
+      });
     },
-    [loadPanorama],
+    [commit, setSearchParams],
   );
 
   const handleDepthChange = useCallback(
     (nextDepth: number) => {
+      if (nextDepth === depth) return;
+      lastLoadedKeyRef.current = '';
       setDepth(nextDepth);
-      if (commit) {
-        loadPanorama({ commitOverride: commit, depthOverride: nextDepth });
-      }
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('depth', String(nextDepth));
+        return prev.toString() === next.toString() ? prev : next;
+      });
     },
-    [commit, loadPanorama],
+    [depth, setSearchParams],
   );
 
   const handleExpand = useCallback(
     (qualifiedName: string) => {
-      const newStack = pushFocus(focusStack, root);
-      setFocusStack(newStack);
-      setRoot(qualifiedName);
-      loadPanorama({ rootOverride: qualifiedName, stackOverride: newStack });
+      navigateFocus(pushFocus(focusStack, root), qualifiedName);
     },
-    [focusStack, root, loadPanorama],
+    [focusStack, root, navigateFocus],
   );
 
   const handleGoBack = useCallback(() => {
     const popped = popFocus(focusStack);
     if (!popped) return;
-    setFocusStack(popped.stack);
-    setRoot(popped.root);
-    loadPanorama({ rootOverride: popped.root, stackOverride: popped.stack });
-  }, [focusStack, loadPanorama]);
+    navigateFocus(popped.stack, popped.root);
+  }, [focusStack, navigateFocus]);
 
   const handleGoToOverview = useCallback(() => {
-    setFocusStack([]);
-    setRoot('');
-    loadPanorama({ rootOverride: '', stackOverride: [], resetStack: true });
-  }, [loadPanorama]);
+    navigateFocus([], '');
+  }, [navigateFocus]);
 
   const focusTrail = useMemo(() => buildFocusTrail(focusStack, root), [focusStack, root]);
 
@@ -333,11 +371,16 @@ export default function PanoramaPage() {
     (index: number) => {
       const next = focusAtTrailIndex(focusStack, root, index);
       if (!next) return;
-      setFocusStack(next.stack);
-      setRoot(next.root);
-      loadPanorama({ rootOverride: next.root, stackOverride: next.stack });
+      navigateFocus(next.stack, next.root);
     },
-    [focusStack, root, loadPanorama],
+    [focusStack, root, navigateFocus],
+  );
+
+  const handleFocusEntry = useCallback(
+    (qualifiedName: string) => {
+      navigateFocus([], qualifiedName);
+    },
+    [navigateFocus],
   );
 
   async function handleEnrich(nodeIds: string[]) {
@@ -437,8 +480,12 @@ export default function PanoramaPage() {
           <Button
             variant="primary"
             onClick={() => {
-              setFocusStack([]);
-              loadPanorama({ rootOverride: root.trim(), stackOverride: [], resetStack: true });
+              if (root.trim()) {
+                navigateFocus([], root.trim());
+              } else {
+                lastLoadedKeyRef.current = '';
+                setRefreshToken((t) => t + 1);
+              }
             }}
             disabled={loading || !commit}
           >
@@ -454,6 +501,12 @@ export default function PanoramaPage() {
               </>
             )}
             Snapshot <strong>{selectedCommit.shortHash}</strong> · {selectedCommit.message.slice(0, 80)}
+            {graph?.stats.effectiveDepth && graph.stats.effectiveDepth > depth && (
+              <>
+                {' · '}
+                Overview uses depth {graph.stats.effectiveDepth} on this repo size
+              </>
+            )}
           </p>
         )}
       </Card>
@@ -473,6 +526,7 @@ export default function PanoramaPage() {
           onGoBack={handleGoBack}
           onGoToOverview={handleGoToOverview}
           onContinueTrace={handleExpand}
+          onFocusEntry={handleFocusEntry}
           onEnrich={handleEnrich}
         />
       </div>
