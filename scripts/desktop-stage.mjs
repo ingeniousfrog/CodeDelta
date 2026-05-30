@@ -24,6 +24,7 @@ const CODEDELTA_PACKAGES = [
   'codedelta-types',
   'codedelta-repo-manager',
   'codedelta-graph-diff',
+  'codedelta-graph-subgraph',
   'codedelta-impact-score',
   'codedelta-delta-summary',
   'codedelta-provider-runtime',
