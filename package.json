@@ -60,7 +60,7 @@
     "@types/picomatch": "^4.0.2",
     "concurrently": "^9.1.2",
     "typescript": "^5.0.0",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.7"
   },
   "engines": {
     "node": ">=20.0.0 <25.0.0"

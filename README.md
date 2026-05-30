@@ -5,7 +5,7 @@
 
 **Local-first, commit-aware structural code intelligence** — built on [CodeGraph](https://github.com/colbymchenry/codegraph).
 
-CodeDelta shows how a codebase’s **structure** changes between commits: symbols, dependency edges, blast radius, and review-oriented summaries. **Trace View** helps narrow down which commit may have introduced a behavior change, with evidence you can verify in **Delta View**.
+CodeDelta shows how a codebase’s **structure** changes between commits: symbols, dependency edges, blast radius, and review-oriented summaries. **Trace View** helps narrow down which commit may have introduced a behavior change, with evidence you can verify in **Delta View**. **Panorama** visualizes call-flow trees at a single commit (or a structural diff overlay between two commits).
 
 This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, settings UI).
 
@@ -35,6 +35,19 @@ Compare two commits (`Base` = before, `Head` = after):
 - Delta summary (main areas, risks, suggested review order)
 - File-level unified diff modal (click files or symbols)
 - Per-snapshot metadata (`codegraph` vs `fallback` extraction)
+- **Graph tab** — React Flow call tree at the head commit with added/modified/removed coloring on nodes and edges
+
+### Panorama
+
+Interactive call-flow graph from CodeGraph snapshots (React Flow):
+
+- **Single commit** — top entry routes/components/exported symbols, expandable by call depth
+- **Branch + commit** selectors; auto-rebuild when either changes
+- **Drill-down** — *Expand from here*, breadcrumb trail, Back / All entry points
+- **Shareable URLs** — `?branch=&commit=&depth=&focusPath=` preserves your drill-down path
+- **Export** — SVG (vector) or hi-DPI PNG generated from graph data (not a DOM screenshot)
+- Optional LLM node labels (non-authoritative)
+- Linked from **Delta View → Graph**, **Trace View**, and **Commit Timeline**
 
 ### Trace View
 
@@ -44,13 +57,14 @@ Describe a bug, behavior change, or question in natural language:
 - Attach evidence per candidate (`previous → candidate` compare when a parent exists)
 - Return a direct answer, confidence, uncertainty, and suggested next steps
 - Jump to Delta View to verify each candidate
+- **View in Panorama** on a candidate commit (trace symbol highlights when available)
 
 **Without any LLM configured**, Trace still returns candidates, evidence, and impact radius (evidence-first, no invented facts).
 
 ### Commit timeline & import
 
 - Import a public GitHub repo (`owner/repo` or URL) or a **local git path**
-- Browse commits; open Delta or Trace from the timeline
+- Browse commits; open Delta, Trace, or Panorama from the timeline
 
 ## What CodeDelta is not
 
@@ -77,6 +91,7 @@ Open [http://localhost:5173](http://localhost:5173).
 2. **Commit Timeline** — pick a branch and browse history
 3. **Delta View** — choose `Base (before)` and `Head (after)`, then compare
 4. **Trace View** — describe an issue; review candidates and open Delta to verify
+5. **Panorama** — pick branch/commit and explore call trees; drill down from any entry or route
 
 ## UI walkthrough
 
@@ -105,6 +120,9 @@ API: [http://localhost:3847](http://localhost:3847)
 |----------|-------------|
 | `GET /api/health` | Health check |
 | `GET /api/repos/:id/compare?base=&head=` | Structural delta between commits |
+| `GET /api/repos/:id/panorama?commit=&depth=&root=` | Call-flow graph at one commit |
+| `GET /api/repos/:id/panorama?base=&head=&depth=` | Delta-colored call-flow graph (head commit tree) |
+| `POST /api/repos/:id/panorama/enrich` | Optional LLM labels for panorama nodes |
 | `GET /api/repos/:id/diff?base=&head=&file=` | Unified diff for one file |
 | `POST /api/repos/:id/trace` | Trace question → candidates + evidence |
 | `GET /api/settings/provider` | Current LLM provider settings |
@@ -191,11 +209,12 @@ packages/
   codedelta-server/           # REST API
   codedelta-snapshot-manager/
   codedelta-graph-diff/
+  codedelta-graph-subgraph/   # Panorama call-tree + layout
   codedelta-impact-score/
   codedelta-delta-summary/
   codedelta-trace-engine/
   codedelta-provider-runtime/
-apps/web/                     # React UI
+apps/web/                     # React UI (Delta, Trace, Panorama)
 apps/desktop/                 # macOS desktop shell (Tauri 2)
 ```
 
@@ -206,7 +225,8 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 - TypeScript/JavaScript-first practical path today
 - Delta and trace: **commit-to-commit** only (no PR/branch/working-tree compare yet)
 - Codex: local CLI session only (no in-browser OAuth)
-- UI: tables/lists (no full graph canvas yet)
+- Panorama overview shows **top entry surfaces** only on large repos — drill down with *Expand from here*; sparse graphs often mean mount points (`USE /api/*`) need expansion to see router internals
+- Panorama export is a simplified card layout (no live *Expand* buttons); prefer **SVG** for zoom/clarity
 - Symbol click opens **file** diff, not symbol-to-hunk mapping
 
 ## Desktop (macOS)
@@ -266,9 +286,10 @@ apps/desktop/
 npm run build:codedelta
 npm run dev:codedelta    # API :3847, web :5173, watches provider-runtime
 
-npm test -- packages/codedelta-graph-diff packages/codedelta-impact-score \
-  packages/codedelta-server packages/codedelta-snapshot-manager \
-  packages/codedelta-trace-engine packages/codedelta-provider-runtime
+npm test -- packages/codedelta-graph-diff packages/codedelta-graph-subgraph \
+  packages/codedelta-impact-score packages/codedelta-server \
+  packages/codedelta-snapshot-manager packages/codedelta-trace-engine \
+  packages/codedelta-provider-runtime __tests__/codedelta
 ```
 
 Environment variables:

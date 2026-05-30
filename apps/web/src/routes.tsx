@@ -4,6 +4,7 @@ import ImportPage from './pages/ImportPage';
 import TimelinePage from './pages/TimelinePage';
 import DeltaViewPage from './pages/DeltaViewPage';
 import TraceViewPage from './pages/TraceViewPage';
+import PanoramaPage from './pages/PanoramaPage';
 import ProviderSettingsPage from './pages/ProviderSettingsPage';
 
 export function AppRoutes() {
@@ -15,6 +16,7 @@ export function AppRoutes() {
         <Route path="repos/:repoId/timeline" element={<TimelinePage />} />
         <Route path="repos/:repoId/delta" element={<DeltaViewPage />} />
         <Route path="repos/:repoId/trace" element={<TraceViewPage />} />
+        <Route path="repos/:repoId/panorama" element={<PanoramaPage />} />
         <Route path="settings/provider" element={<ProviderSettingsPage />} />
       </Route>
     </Routes>

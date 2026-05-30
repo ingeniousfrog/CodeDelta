@@ -144,12 +144,30 @@ export default function TraceViewPage() {
     }
   }
 
-  function openDelta(base: string, head: string) {
+  function openDelta(baseHash: string, headHash: string) {
     if (!repoId) return;
     if (result) {
       persist(result, question, branch, commitLimit, includeDiffEvidence);
     }
-    navigate(`/repos/${repoId}/delta?base=${base}&head=${head}&from=trace`);
+    navigate(`/repos/${repoId}/delta?base=${baseHash}&head=${headHash}&from=trace`);
+  }
+
+  function openPanorama(_baseHash: string, headHash: string) {
+    if (!repoId) return;
+    if (result) {
+      persist(result, question, branch, commitLimit, includeDiffEvidence);
+    }
+    const symbols = result?.impactRadius.symbols.slice(0, 12).join(',') ?? '';
+    const entryPoints = result?.impactRadius.entryPoints.slice(0, 8).join(',') ?? '';
+    const q = new URLSearchParams({
+      commit: headHash,
+      highlight: 'trace',
+      from: 'trace',
+    });
+    if (branch) q.set('branch', branch);
+    if (symbols) q.set('traceSymbols', symbols);
+    if (entryPoints) q.set('traceEntryPoints', entryPoints);
+    navigate(`/repos/${repoId}/panorama?${q.toString()}`);
   }
 
   const topCandidate = result?.candidates[0];
@@ -263,12 +281,22 @@ export default function TraceViewPage() {
               <div className="trace-summary-aside">
                 <Badge variant="accent">Confidence: {result.confidence}</Badge>
                 {topCandidate?.previousCommitHash && result.mostLikelyCommit && (
-                  <Button
-                    variant="primary"
-                    onClick={() => openDelta(topCandidate.previousCommitHash!, result.mostLikelyCommit!.hash)}
-                  >
-                    Verify in Delta View
-                  </Button>
+                  <>
+                    <Button
+                      variant="primary"
+                      onClick={() => openDelta(topCandidate.previousCommitHash!, result.mostLikelyCommit!.hash)}
+                    >
+                      Verify in Delta View
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() =>
+                        openPanorama(topCandidate.previousCommitHash!, result.mostLikelyCommit!.hash)
+                      }
+                    >
+                      View in Panorama
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -314,9 +342,14 @@ export default function TraceViewPage() {
                     </p>
                   )}
                   {c.previousCommitHash ? (
-                    <Button variant="link" onClick={() => openDelta(c.previousCommitHash!, c.commit.hash)}>
-                      Compare parent → this commit in Delta
-                    </Button>
+                    <>
+                      <Button variant="link" onClick={() => openDelta(c.previousCommitHash!, c.commit.hash)}>
+                        Compare parent → this commit in Delta
+                      </Button>
+                      <Button variant="link" onClick={() => openPanorama(c.previousCommitHash!, c.commit.hash)}>
+                        View in Panorama
+                      </Button>
+                    </>
                   ) : (
                     <p className="hint">No parent commit for structural comparison.</p>
                   )}

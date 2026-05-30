@@ -14,6 +14,7 @@
   "dependencies": {
     "@codedelta/delta-summary": "*",
     "@codedelta/graph-diff": "*",
+    "@codedelta/graph-subgraph": "*",
     "@codedelta/impact-score": "*",
     "@codedelta/provider-runtime": "*",
     "@codedelta/repo-manager": "*",

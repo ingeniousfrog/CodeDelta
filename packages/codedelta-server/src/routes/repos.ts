@@ -8,9 +8,10 @@ import {
   listCommits,
   RepoNotFoundError,
 } from '@codedelta/repo-manager';
-import type { ImportRepoRequest, TraceQuestion } from '@codedelta/types';
+import type { ImportRepoRequest, PanoramaEnrichRequest, TraceQuestion } from '@codedelta/types';
 import { compareCommits, CompareError } from '../services/compare';
 import { getFileDiff } from '../services/diff';
+import { enrichPanoramaNodes, getPanorama, PanoramaError } from '../services/panorama';
 import { runTrace, TraceError } from '../services/trace';
 import { RepoRegistry, SettingsStore } from '../store/repo-registry';
 import { param } from './params';
@@ -76,6 +77,68 @@ export function createReposRouter(registry: RepoRegistry, settings: SettingsStor
       res.json(listBranches(ref.clonePath));
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to list branches' });
+    }
+  });
+
+  router.get('/:id/panorama', async (req: Request, res: Response) => {
+    const id = param(req.params.id);
+    const commit = (req.query.commit as string | undefined)?.trim();
+    const base = (req.query.base as string | undefined)?.trim();
+    const head = (req.query.head as string | undefined)?.trim();
+    const root = (req.query.root as string | undefined)?.trim();
+    const depth = parseInt(String(req.query.depth ?? '3'), 10);
+    const maxNodes = parseInt(String(req.query.maxNodes ?? '200'), 10);
+    const highlight = (req.query.highlight as string | undefined)?.trim();
+    const traceSymbols = (req.query.traceSymbols as string | undefined)
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const traceEntryPoints = (req.query.traceEntryPoints as string | undefined)
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    try {
+      const result = await getPanorama(registry, id, {
+        commit,
+        base,
+        head,
+        root,
+        depth: Number.isFinite(depth) ? depth : 3,
+        maxNodes: Number.isFinite(maxNodes) ? maxNodes : 200,
+        highlight: highlight === 'trace' ? 'trace' : undefined,
+        traceSymbols,
+        traceEntryPoints,
+      });
+      res.json(result);
+    } catch (err) {
+      if (err instanceof PanoramaError || err instanceof CompareError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Panorama failed',
+      });
+    }
+  });
+
+  router.post('/:id/panorama/enrich', async (req: Request, res: Response) => {
+    const id = param(req.params.id);
+    const body = (req.body ?? {}) as Partial<PanoramaEnrichRequest>;
+    try {
+      const result = await enrichPanoramaNodes(registry, settings, id, {
+        commit: body.commit ?? '',
+        nodeIds: body.nodeIds ?? [],
+      });
+      res.json(result);
+    } catch (err) {
+      if (err instanceof PanoramaError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Enrich failed',
+      });
     }
   });
 

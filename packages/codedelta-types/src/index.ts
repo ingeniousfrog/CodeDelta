@@ -283,3 +283,78 @@ export interface ImportRepoRequest {
   source: 'github' | 'local';
   input: string;
 }
+
+export type PanoramaDeltaStatus = 'added' | 'removed' | 'modified' | 'unchanged';
+
+export type PanoramaNodeRole = 'entry' | 'bridge' | 'leaf';
+
+export interface PanoramaNodePosition {
+  x: number;
+  y: number;
+}
+
+export interface PanoramaNode {
+  id: string;
+  kind: string;
+  name: string;
+  qualifiedName: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  signature?: string;
+  /** Snapshot commit this node was extracted from. */
+  commitHash?: string;
+  commitShortHash?: string;
+  role?: PanoramaNodeRole;
+  deltaStatus?: PanoramaDeltaStatus;
+  traceHighlight?: boolean;
+  pathHighlight?: boolean;
+  llmLabel?: string;
+  position?: PanoramaNodePosition;
+}
+
+export interface PanoramaEdge {
+  id: string;
+  source: string;
+  target: string;
+  kind: string;
+  line?: number;
+  provenance?: string;
+  synthesizedBy?: string;
+  deltaStatus?: 'added' | 'removed' | 'unchanged';
+  pathHighlight?: boolean;
+}
+
+export interface PanoramaGraph {
+  repoId: string;
+  commit?: string;
+  commitShortHash?: string;
+  base?: string;
+  head?: string;
+  nodes: PanoramaNode[];
+  edges: PanoramaEdge[];
+  entryPoints: string[];
+  layout: 'tree' | 'layered';
+  stats: {
+    nodeCount: number;
+    edgeCount: number;
+    truncated: boolean;
+    /** Total symbols in the indexed snapshot (context for sparse overviews). */
+    snapshotNodeCount?: number;
+    /** Entry surfaces included in this overview. */
+    entrySurfaceCount?: number;
+  };
+  extractionMethod?: ExtractionMethod;
+  pathConnected?: boolean;
+  pathMessage?: string;
+}
+
+export interface PanoramaEnrichRequest {
+  commit: string;
+  nodeIds: string[];
+}
+
+export interface PanoramaEnrichResult {
+  labels: Record<string, string>;
+  nonAuthoritative: true;
+}

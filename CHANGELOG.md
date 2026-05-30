@@ -10,6 +10,7 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- **CodeDelta panorama view (全景图).** Interactive call-flow graph built from CodeGraph snapshots: entry exploration from routes/components/exported symbols, Delta View graph tab with change coloring, Trace View navigation with evidence highlighting, optional LLM node labels, and Android MAIN/LAUNCHER activity entry detection in CodeGraph.
 - **Java / Kotlin imports now resolve by fully-qualified name.** Extraction
   wraps every top-level declaration of a `.kt` / `.java` file in a `namespace`
   node carrying the file's `package` (so a class `Bar` in

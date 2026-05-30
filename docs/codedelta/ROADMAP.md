@@ -116,7 +116,7 @@ Not implemented yet (planned):
 ## Phase 4 — Depth and polish
 
 - [ ] Deeper CodeGraph integration for snapshots (incremental indexing / reuse)
-- [ ] Rich graph visualization (React Flow or Cytoscape)
+- [x] Rich graph visualization foundation (React Flow panorama — entry exploration, Delta overlay, Trace highlight)
 - [ ] Private GitHub repository support
 - [ ] Incremental snapshot acceleration for large repositories
 - [ ] Timeline-level persisted impact scores

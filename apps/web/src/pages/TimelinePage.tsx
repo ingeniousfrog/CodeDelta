@@ -77,8 +77,12 @@ export default function TimelinePage() {
     navigate(`/repos/${repoId}/delta?base=${base}&head=${head}`);
   }
 
-  function openTrace(candidate: string) {
-    navigate(`/repos/${repoId}/trace?candidate=${candidate}`);
+  function openPanorama(commitHash: string) {
+    navigate(`/repos/${repoId}/panorama?commit=${commitHash}&branch=${encodeURIComponent(branch)}`);
+  }
+
+  function openTrace(commitHash: string) {
+    navigate(`/repos/${repoId}/trace?candidate=${commitHash}`);
   }
 
   if (loading) {
@@ -186,6 +190,9 @@ export default function TimelinePage() {
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => openTrace(selected.hash)}>
                   Open in Trace View
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => openPanorama(selected.hash)}>
+                  Open in Panorama
                 </Button>
               </div>
             </>

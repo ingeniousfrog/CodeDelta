@@ -18,8 +18,11 @@ import {
   PageHeader,
   Select,
 } from '../components/ui';
+import PanoramaGraphView from '../components/PanoramaGraphView';
+import { buildFocusTrail, focusAtTrailIndex, popFocus, pushFocus, serializeFocusPath } from '../lib/panorama-focus';
+import type { PanoramaGraph } from '../types';
 
-type TabId = 'files' | 'symbols' | 'edges' | 'metrics';
+type TabId = 'files' | 'symbols' | 'edges' | 'metrics' | 'graph';
 type ContributorFactor =
   | 'changedFiles'
   | 'changedSymbols'
@@ -168,6 +171,12 @@ export default function DeltaViewPage() {
   const [diffError, setDiffError] = useState<string | null>(null);
   const [diffData, setDiffData] = useState<FileDiffResponse | null>(null);
 
+  const [panorama, setPanorama] = useState<PanoramaGraph | null>(null);
+  const [panoramaLoading, setPanoramaLoading] = useState(false);
+  const [panoramaError, setPanoramaError] = useState<string | null>(null);
+  const [panoramaRoot, setPanoramaRoot] = useState('');
+  const [panoramaFocusStack, setPanoramaFocusStack] = useState<string[]>([]);
+
   useEffect(() => {
     if (!repoId) return;
     api
@@ -192,6 +201,9 @@ export default function DeltaViewPage() {
       const data = await api.compare(repoId, base, head);
       setResult(data);
       setTab('files');
+      setPanorama(null);
+      setPanoramaRoot('');
+      setPanoramaFocusStack([]);
     } catch (err) {
       setResult(null);
       setError(err instanceof Error ? err.message : 'Compare failed');
@@ -210,6 +222,84 @@ export default function DeltaViewPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repoId, searchParams.get('base'), searchParams.get('head')]);
+
+  const loadPanorama = useCallback(
+    async (rootOverride?: string) => {
+      if (!repoId || !base || !head) return;
+      setPanoramaLoading(true);
+      setPanoramaError(null);
+      try {
+        const data = await api.getPanorama(repoId, {
+          base,
+          head,
+          depth: 3,
+          maxNodes: 200,
+          root: (rootOverride ?? panoramaRoot) || undefined,
+        });
+        setPanorama(data);
+      } catch (err) {
+        setPanorama(null);
+        setPanoramaError(err instanceof Error ? err.message : 'Panorama failed');
+      } finally {
+        setPanoramaLoading(false);
+      }
+    },
+    [repoId, base, head, panoramaRoot],
+  );
+
+  useEffect(() => {
+    if (tab === 'graph' && result && !panorama && !panoramaLoading) {
+      loadPanorama();
+    }
+  }, [tab, result, panorama, panoramaLoading, loadPanorama]);
+
+  const handlePanoramaExpand = useCallback(
+    (qualifiedName: string) => {
+      setPanoramaFocusStack((prev) => pushFocus(prev, panoramaRoot));
+      setPanoramaRoot(qualifiedName);
+      loadPanorama(qualifiedName);
+    },
+    [panoramaRoot, loadPanorama],
+  );
+
+  const handlePanoramaGoBack = useCallback(() => {
+    const popped = popFocus(panoramaFocusStack);
+    if (!popped) return;
+    setPanoramaFocusStack(popped.stack);
+    setPanoramaRoot(popped.root);
+    loadPanorama(popped.root || undefined);
+  }, [panoramaFocusStack, loadPanorama]);
+
+  const handlePanoramaOverview = useCallback(() => {
+    setPanoramaFocusStack([]);
+    setPanoramaRoot('');
+    loadPanorama('');
+  }, [loadPanorama]);
+
+  const panoramaFocusTrail = useMemo(
+    () => buildFocusTrail(panoramaFocusStack, panoramaRoot),
+    [panoramaFocusStack, panoramaRoot],
+  );
+
+  const fullPanoramaHref = useMemo(() => {
+    if (!repoId || !head) return undefined;
+    const q = new URLSearchParams({ commit: head, from: 'delta' });
+    if (repo?.defaultBranch) q.set('branch', repo.defaultBranch);
+    const path = serializeFocusPath(panoramaFocusTrail);
+    if (path) q.set('focusPath', path);
+    return `/repos/${repoId}/panorama?${q.toString()}`;
+  }, [repoId, head, repo?.defaultBranch, panoramaFocusTrail]);
+
+  const handlePanoramaTrailSelect = useCallback(
+    (index: number) => {
+      const next = focusAtTrailIndex(panoramaFocusStack, panoramaRoot, index);
+      if (!next) return;
+      setPanoramaFocusStack(next.stack);
+      setPanoramaRoot(next.root);
+      loadPanorama(next.root || undefined);
+    },
+    [panoramaFocusStack, panoramaRoot, loadPanorama],
+  );
 
   async function openFileDiff(filePath: string) {
     if (!repoId || !base || !head) return;
@@ -231,7 +321,7 @@ export default function DeltaViewPage() {
   const headIndex = commits.findIndex((c) => c.hash === head);
   const baseOptions = commits.filter((_, idx) => headIndex < 0 || idx > headIndex);
   const headOptions = commits.filter((_, idx) => baseIndex < 0 || idx < baseIndex);
-  const visibleTabs: TabId[] = ['files', 'symbols', 'edges', 'metrics'];
+  const visibleTabs: TabId[] = ['files', 'symbols', 'edges', 'metrics', 'graph'];
 
   const changedSymbols = useMemo(() => {
     if (!result) return 0;
@@ -462,6 +552,41 @@ export default function DeltaViewPage() {
                 {result.headMeta.extractionMethod} ({result.headMeta.nodeCount} nodes)
               </dd>
             </dl>
+          )}
+
+          {tab === 'graph' && (
+            <>
+              <p className="hint" style={{ marginBottom: '0.75rem' }}>
+                Structural diff overlay on the head commit&apos;s call tree. For a single-commit map without diff coloring,{' '}
+                {repoId && head ? (
+                  <Link to={`/repos/${repoId}/panorama?commit=${head}&from=delta`}>open full Panorama</Link>
+                ) : (
+                  'open Panorama'
+                )}
+                .
+              </p>
+              <PanoramaGraphView
+                graph={panorama}
+                loading={panoramaLoading}
+                error={panoramaError}
+                showDeltaLegend
+                focusTrail={panoramaFocusTrail}
+                onFocusTrailSelect={handlePanoramaTrailSelect}
+                canGoBack={panoramaFocusStack.length > 0}
+                canGoToOverview={panoramaRoot.trim().length > 0}
+                onGoBack={handlePanoramaGoBack}
+                onGoToOverview={handlePanoramaOverview}
+                fullPanoramaHref={fullPanoramaHref}
+                impactedEntryPoints={result.impact.impactedEntryPoints}
+                onFocusEntry={(ep) => {
+                  setPanoramaFocusStack((prev) => pushFocus(prev, panoramaRoot));
+                  setPanoramaRoot(ep);
+                  loadPanorama(ep);
+                }}
+                onContinueTrace={handlePanoramaExpand}
+                onNodeClick={(node) => openFileDiff(node.filePath)}
+              />
+            </>
           )}
         </Card>
       )}

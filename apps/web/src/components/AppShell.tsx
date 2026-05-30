@@ -60,6 +60,12 @@ function ShellInner() {
                 >
                   Trace View
                 </NavLink>
+                <NavLink
+                  to={repoNavPath(repoId, 'panorama')}
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  Panorama
+                </NavLink>
               </>
             ) : (
               <>
@@ -68,6 +74,9 @@ function ShellInner() {
                 </span>
                 <span className="nav-link disabled" title="Import a repository first">
                   Trace View
+                </span>
+                <span className="nav-link disabled" title="Import a repository first">
+                  Panorama
                 </span>
               </>
             )}

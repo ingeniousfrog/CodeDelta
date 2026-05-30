@@ -9,6 +9,8 @@ import type {
   ImpactSummary,
   ImportRepoRequest,
   ModelProviderConfig,
+  PanoramaEnrichResult,
+  PanoramaGraph,
   ProviderKind,
   RepoRef,
   TraceAnswer,
@@ -84,6 +86,39 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(config),
     }),
+
+  getPanorama: (
+    id: string,
+    params: {
+      commit?: string;
+      base?: string;
+      head?: string;
+      root?: string;
+      depth?: number;
+      maxNodes?: number;
+      highlight?: 'trace';
+      traceSymbols?: string[];
+      traceEntryPoints?: string[];
+    },
+  ) => {
+    const q = new URLSearchParams();
+    if (params.commit) q.set('commit', params.commit);
+    if (params.base) q.set('base', params.base);
+    if (params.head) q.set('head', params.head);
+    if (params.root) q.set('root', params.root);
+    if (params.depth != null) q.set('depth', String(params.depth));
+    if (params.maxNodes != null) q.set('maxNodes', String(params.maxNodes));
+    if (params.highlight) q.set('highlight', params.highlight);
+    if (params.traceSymbols?.length) q.set('traceSymbols', params.traceSymbols.join(','));
+    if (params.traceEntryPoints?.length) q.set('traceEntryPoints', params.traceEntryPoints.join(','));
+    return request<PanoramaGraph>(`/api/repos/${id}/panorama?${q.toString()}`);
+  },
+
+  enrichPanorama: (id: string, body: { commit: string; nodeIds: string[] }) =>
+    request<PanoramaEnrichResult>(`/api/repos/${id}/panorama/enrich`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 export type {
@@ -100,4 +135,6 @@ export type {
   CodeNode,
   ModelProviderConfig,
   ProviderKind,
+  PanoramaGraph,
+  PanoramaEnrichResult,
 };

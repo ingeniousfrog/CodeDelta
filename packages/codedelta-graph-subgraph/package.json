@@ -1,0 +1,18 @@
+{
+  "name": "@codedelta/graph-subgraph",
+  "version": "0.1.0",
+  "description": "Call-tree subgraph extraction and layout for CodeDelta panorama",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@codedelta/graph-diff": "*",
+    "@codedelta/types": "*",
+    "@dagrejs/dagre": "^1.1.4"
+  },
+  "license": "MIT"
+}

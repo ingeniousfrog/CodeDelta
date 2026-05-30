@@ -164,6 +164,66 @@ export interface ImportRepoRequest {
   input: string;
 }
 
+export type PanoramaDeltaStatus = 'added' | 'removed' | 'modified' | 'unchanged';
+
+export interface PanoramaNode {
+  id: string;
+  kind: string;
+  name: string;
+  qualifiedName: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  signature?: string;
+  commitHash?: string;
+  commitShortHash?: string;
+  role?: 'entry' | 'bridge' | 'leaf';
+  deltaStatus?: PanoramaDeltaStatus;
+  traceHighlight?: boolean;
+  pathHighlight?: boolean;
+  llmLabel?: string;
+  position?: { x: number; y: number };
+}
+
+export interface PanoramaEdge {
+  id: string;
+  source: string;
+  target: string;
+  kind: string;
+  line?: number;
+  provenance?: string;
+  synthesizedBy?: string;
+  deltaStatus?: 'added' | 'removed' | 'unchanged';
+  pathHighlight?: boolean;
+}
+
+export interface PanoramaGraph {
+  repoId: string;
+  commit?: string;
+  commitShortHash?: string;
+  base?: string;
+  head?: string;
+  nodes: PanoramaNode[];
+  edges: PanoramaEdge[];
+  entryPoints: string[];
+  layout: 'tree' | 'layered';
+  stats: {
+    nodeCount: number;
+    edgeCount: number;
+    truncated: boolean;
+    snapshotNodeCount?: number;
+    entrySurfaceCount?: number;
+  };
+  extractionMethod?: 'codegraph' | 'fallback';
+  pathConnected?: boolean;
+  pathMessage?: string;
+}
+
+export interface PanoramaEnrichResult {
+  labels: Record<string, string>;
+  nonAuthoritative: true;
+}
+
 export type ProviderKind =
   | 'codex-oauth'
   | 'openai'
