@@ -11,6 +11,9 @@ on:
       - 'scripts/desktop-stage.mjs'
       - 'src/**'
 
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     runs-on: macos-latest
@@ -41,5 +44,32 @@ jobs:
           path: |
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
+
+      - name: Publish dmg to GitHub Release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          TAG="codedelta-desktop-v${VERSION}"
+          DMG=$(ls apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg)
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          NOTES=$(cat <<EOF
+          CodeDelta macOS desktop app (unsigned, Apple Silicon arm64).
+
+          Bundled: web UI, API server, CodeGraph runtime, and Node 22 — no separate Node install required.
+
+          - Built from commit \`${SHA_SHORT}\`
+          - Requires **git** on \`PATH\`
+          - If macOS blocks launch: right-click → **Open**, or \`xattr -cr /Applications/CodeDelta.app\`
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$DMG" --clobber
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" "$DMG" --title "CodeDelta Desktop v${VERSION}" --notes "$NOTES"
+          fi
 
       # Optional: add APPLE_CERTIFICATE / notarytool steps when signing secrets are configured.

@@ -237,7 +237,8 @@ CodeDelta ships a **macOS desktop app** ([`apps/desktop/`](apps/desktop/)) — a
 
 Pre-built **unsigned** `.dmg` (arm64 / M1–M4):
 
-- [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog`
+- [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.1.0) — `CodeDelta_0.1.0_aarch64.dmg` (auto-updated on each `main` desktop CI build)
+- [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` (mirror)
 
 Install: open the dmg → drag **CodeDelta** to Applications. If macOS blocks launch, right-click the app → **Open**, or run `xattr -cr /Applications/CodeDelta.app` (common after Baidu Netdisk download). Requires **git** on `PATH`.
 
