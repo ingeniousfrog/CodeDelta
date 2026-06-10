@@ -255,7 +255,7 @@ Then open again, or right-click the app → **Open** the first time. (Baidu Netd
 
 **Install (Windows):** run the setup `.exe` and follow the wizard.
 
-Requires **git** on `PATH` on both platforms.
+Requires **git** on `PATH` on both platforms. **Do not run `npm run dev:desktop` while using the installed app** — both use port 3847; the dev server is API-only and causes a blank `Cannot GET /` page.
 
 **Runtime data:** `~/Library/Application Support/CodeDelta` (macOS) · `%APPDATA%\CodeDelta` (Windows)
 

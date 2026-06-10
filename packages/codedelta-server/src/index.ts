@@ -29,8 +29,14 @@ export function resolveCacheRoot(): string | undefined {
   if (env) {
     return path.isAbsolute(env) ? env : path.resolve(process.cwd(), env);
   }
-  if (process.env.CODEDELTA_DESKTOP === '1' && process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'Application Support', 'CodeDelta');
+  if (process.env.CODEDELTA_DESKTOP === '1') {
+    const base =
+      process.platform === 'darwin'
+        ? path.join(os.homedir(), 'Library', 'Application Support', 'CodeDelta')
+        : process.env.APPDATA
+          ? path.join(process.env.APPDATA, 'CodeDelta')
+          : path.join(os.homedir(), '.codedelta');
+    return base;
   }
   return undefined;
 }
@@ -50,6 +56,7 @@ export function createApp(options: CreateAppOptions = {}) {
       status: 'ok',
       product: 'CodeDelta',
       gitAvailable,
+      servesUi: Boolean(options.staticRoot),
     });
   });
 

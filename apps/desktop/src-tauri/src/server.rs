@@ -140,17 +140,22 @@ fn wait_for_health(timeout: Duration) -> bool {
 }
 
 pub fn start(app: &AppHandle) -> Result<(), String> {
-    if health_ok() {
-        return Ok(());
-    }
-
     if cfg!(debug_assertions) {
-        if wait_for_health(Duration::from_secs(90)) {
+        if health_ok() {
             return Ok(());
         }
         return Err(
             "CodeDelta API is not running on port 3847. Start it with `npm run dev:codedelta` or use `npm run dev:desktop` from the repo root.".into(),
         );
+    }
+
+    // Production must spawn the bundled server. Do not attach to a dev API on :3847
+    // (e.g. `npm run dev:desktop`) — it serves API only and shows "Cannot GET /".
+    if health_ok() {
+        let hint = port_in_use_hint().unwrap_or_default();
+        return Err(format!(
+            "Port {API_PORT} is already in use. Quit `npm run dev:desktop` or any other CodeDelta/dev server, then reopen the app.\n{hint}"
+        ));
     }
 
     let mut child = spawn_bundled(app)?;
