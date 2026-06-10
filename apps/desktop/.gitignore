@@ -1,4 +1,6 @@
 /target/
+/src-tauri/target/
+/src-tauri/src-tauri/
 /app-icon.png
 /app-icon.ppm
 /.cargo-home/
