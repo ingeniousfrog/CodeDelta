@@ -229,24 +229,31 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 - Panorama export is a simplified card layout (no live *Expand* buttons); prefer **SVG** for zoom/clarity
 - Symbol click opens **file** diff, not symbol-to-hunk mapping
 
-## Desktop (macOS)
+## Desktop (macOS & Windows)
 
-CodeDelta ships a **macOS desktop app** ([`apps/desktop/`](apps/desktop/)) — a Tauri 2 shell that bundles Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
+CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 shells that bundle Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
 
-### Download (Apple Silicon)
+**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.1.0`). macOS and Windows installers publish to the same GitHub Release: `codedelta-desktop-v0.1.0`.
 
-Pre-built **unsigned** `.dmg` (arm64 / M1–M4):
+### Download
 
-- [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.1.0) — `CodeDelta_0.1.0_aarch64.dmg` (auto-updated on each `main` desktop CI build)
-- [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` (mirror)
+| Platform | File | Notes |
+|----------|------|-------|
+| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.1.0) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
+| **Windows** (x64) | Same release → `CodeDelta_*_x64-setup.exe` | NSIS installer |
+| macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | |
 
-Install: open the dmg → drag **CodeDelta** to Applications. If macOS blocks launch, right-click the app → **Open**, or run `xattr -cr /Applications/CodeDelta.app` (common after Baidu Netdisk download). Requires **git** on `PATH`.
+**Install (macOS):** open the dmg → drag **CodeDelta** to Applications. If blocked: `xattr -cr /Applications/CodeDelta.app`
 
-**Runtime data:** `~/Library/Application Support/CodeDelta` (repos, snapshots, settings).
+**Install (Windows):** run the setup `.exe` and follow the wizard.
+
+Requires **git** on `PATH` on both platforms.
+
+**Runtime data:** `~/Library/Application Support/CodeDelta` (macOS) · `%APPDATA%\CodeDelta` (Windows)
 
 ### Build from source
 
-**Requirements:** macOS (arm64 or x64), [Xcode Command Line Tools](https://developer.apple.com/xcode/resources/), [Rust 1.88+](https://rustup.rs/) via `rustup` (Homebrew `cargo` alone may be too old), and repo dev dependencies (`npm ci`).
+**Requirements:** target OS (macOS or Windows), [Rust 1.88+](https://rustup.rs/), repo dev dependencies (`npm ci`). macOS also needs Xcode Command Line Tools; Windows needs [NSIS](https://nsis.sourceforge.io/) for the installer.
 
 ```bash
 # One-time: stage embedded Node + server runtime (~200MB under apps/desktop/src-tauri/resources/runtime/)
@@ -259,7 +266,9 @@ npm run build:desktop
 npm run dev:desktop
 ```
 
-Output: `apps/desktop/src-tauri/target/release/bundle/dmg/CodeDelta_*_aarch64.dmg` (or copy to `release/` manually if `bundle_dmg.sh` fails).
+Output:
+- macOS: `apps/desktop/src-tauri/target/release/bundle/dmg/CodeDelta_*_aarch64.dmg`
+- Windows: `apps/desktop/src-tauri/target/release/bundle/nsis/CodeDelta_*_x64-setup.exe`
 
 **`apps/desktop/` layout:**
 

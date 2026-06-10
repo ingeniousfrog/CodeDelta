@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Assemble bundled Node runtime + CodeDelta server deps for macOS desktop (Tauri).
- * Run on macOS only (darwin + matching arch for native modules).
+ * Assemble bundled Node runtime + CodeDelta server deps for desktop (Tauri).
+ * Run on the target OS (macOS or Windows) so native modules match the platform.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -39,7 +39,7 @@ function log(msg) {
 
 function run(cmd, args, opts = {}) {
   log(`${cmd} ${args.join(' ')}`);
-  const r = spawnSync(cmd, args, { stdio: 'inherit', cwd: REPO_ROOT, ...opts });
+  const r = spawnSync(cmd, args, { stdio: 'inherit', cwd: REPO_ROOT, shell: process.platform === 'win32', ...opts });
   if (r.status !== 0) {
     throw new Error(`Command failed: ${cmd} ${args.join(' ')}`);
   }
@@ -59,11 +59,26 @@ function copyDir(src, dest) {
   }
 }
 
-function darwinArch() {
+function resolveArch() {
   const target = process.env.TARGETARCH ?? process.arch;
   if (target === 'arm64') return 'arm64';
-  if (target === 'x64' || target === 'amd64') return 'x64';
+  if (target === 'x64' || target === 'amd64' || target === 'x86_64') return 'x64';
   throw new Error(`Unsupported arch for desktop staging: ${target}`);
+}
+
+function nodeLayout() {
+  if (process.platform === 'win32') {
+    return {
+      nodeBin: path.join(NODE_ROOT, 'node.exe'),
+      npmCli: path.join(NODE_ROOT, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+      pathDir: NODE_ROOT,
+    };
+  }
+  return {
+    nodeBin: path.join(NODE_ROOT, 'bin', 'node'),
+    npmCli: path.join(NODE_ROOT, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    pathDir: path.join(NODE_ROOT, 'bin'),
+  };
 }
 
 function download(url, dest) {
@@ -91,14 +106,8 @@ function download(url, dest) {
 }
 
 async function ensureNodeBinary() {
-  if (process.platform !== 'darwin') {
-    throw new Error('desktop-stage must run on macOS (darwin)');
-  }
-  const arch = darwinArch();
-  const base = `node-v${NODE_VERSION}-darwin-${arch}`;
-  const tarName = `${base}.tar.gz`;
-  const url = `https://nodejs.org/dist/v${NODE_VERSION}/${tarName}`;
-  const nodeBin = path.join(NODE_ROOT, 'bin', 'node');
+  const arch = resolveArch();
+  const { nodeBin } = nodeLayout();
   const versionStamp = path.join(NODE_ROOT, '.node-version');
   const stamped =
     fs.existsSync(versionStamp) && fs.readFileSync(versionStamp, 'utf8').trim() === NODE_VERSION;
@@ -110,13 +119,40 @@ async function ensureNodeBinary() {
     log(`Embedded Node version changed — re-downloading ${NODE_VERSION}`);
   }
   rmrf(NODE_ROOT);
-  const tmpTar = path.join(RUNTIME_ROOT, tarName);
   fs.mkdirSync(RUNTIME_ROOT, { recursive: true });
-  log(`Downloading ${url}`);
-  await download(url, tmpTar);
-  run('tar', ['-xzf', tarName], { cwd: RUNTIME_ROOT });
-  fs.renameSync(path.join(RUNTIME_ROOT, base), NODE_ROOT);
-  fs.unlinkSync(tmpTar);
+
+  if (process.platform === 'darwin') {
+    const base = `node-v${NODE_VERSION}-darwin-${arch}`;
+    const tarName = `${base}.tar.gz`;
+    const url = `https://nodejs.org/dist/v${NODE_VERSION}/${tarName}`;
+    const tmpTar = path.join(RUNTIME_ROOT, tarName);
+    log(`Downloading ${url}`);
+    await download(url, tmpTar);
+    run('tar', ['-xzf', tarName], { cwd: RUNTIME_ROOT });
+    fs.renameSync(path.join(RUNTIME_ROOT, base), NODE_ROOT);
+    fs.unlinkSync(tmpTar);
+  } else if (process.platform === 'win32') {
+    const base = `node-v${NODE_VERSION}-win-${arch}`;
+    const zipName = `${base}.zip`;
+    const url = `https://nodejs.org/dist/v${NODE_VERSION}/${zipName}`;
+    const tmpZip = path.join(RUNTIME_ROOT, zipName);
+    const extractDir = path.join(RUNTIME_ROOT, '_node_extract');
+    log(`Downloading ${url}`);
+    await download(url, tmpZip);
+    rmrf(extractDir);
+    fs.mkdirSync(extractDir, { recursive: true });
+    run('powershell', [
+      '-NoProfile',
+      '-Command',
+      `Expand-Archive -LiteralPath '${tmpZip.replace(/'/g, "''")}' -DestinationPath '${extractDir.replace(/'/g, "''")}' -Force`,
+    ]);
+    fs.renameSync(path.join(extractDir, base), NODE_ROOT);
+    rmrf(extractDir);
+    fs.unlinkSync(tmpZip);
+  } else {
+    throw new Error(`desktop-stage unsupported platform: ${process.platform}`);
+  }
+
   if (!fs.existsSync(nodeBin)) {
     throw new Error(`Node binary missing after extract: ${nodeBin}`);
   }
@@ -128,7 +164,7 @@ function copyMonorepoRootDist() {
   const distSrc = path.join(REPO_ROOT, 'dist');
   const distDest = path.join(APP_ROOT, 'dist');
   if (!fs.existsSync(distSrc)) {
-    throw new Error('CodeGraph dist/ missing — run npm run build:codedelta first');
+    throw new Error('CodeGraph dist/ missing — run npm run build first');
   }
   rmrf(distDest);
   copyDir(distSrc, distDest);
@@ -149,7 +185,6 @@ function copyPackages() {
     }
     copyDir(dist, path.join(dest, 'dist'));
   }
-  // Avoid npm self-referential link: app root is already @codedelta/monorepo.
   const snapPkgPath = path.join(packagesDest, 'codedelta-snapshot-manager', 'package.json');
   const snapPkg = JSON.parse(fs.readFileSync(snapPkgPath, 'utf8'));
   delete snapPkg.dependencies['@codedelta/monorepo'];
@@ -185,14 +220,15 @@ function copyWebDist() {
 
 function npmInstallProduction(nodeBin) {
   log('Installing production dependencies in staged runtime…');
-  const npmCli = path.join(NODE_ROOT, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const { npmCli, pathDir } = nodeLayout();
+  const pathSep = process.platform === 'win32' ? ';' : ':';
   const args = ['install', '--omit=dev', '--install-links', '--no-audit', '--no-fund'];
   const r = spawnSync(nodeBin, [npmCli, ...args], {
     cwd: APP_ROOT,
     stdio: 'inherit',
     env: {
       ...process.env,
-      PATH: `${path.join(NODE_ROOT, 'bin')}:${process.env.PATH ?? ''}`,
+      PATH: `${pathDir}${pathSep}${process.env.PATH ?? ''}`,
     },
   });
   if (r.status !== 0) {
@@ -214,11 +250,25 @@ function verifyPhysicalWorkspaceDeps() {
   log('Verified physical @codedelta/* packages in node_modules');
 }
 
-function sleep(ms) {
-  spawnSync('sleep', [String(ms / 1000)], { stdio: 'ignore' });
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function smokeTest(nodeBin) {
+async function waitForHealth(port) {
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/api/health`);
+      if (res.ok) return true;
+    } catch {
+      // retry
+    }
+    await delay(300);
+  }
+  return false;
+}
+
+async function smokeTest(nodeBin) {
   log('Smoke test: node:sqlite + CodeGraph load + health endpoint');
   const sqliteCheck = spawnSync(
     nodeBin,
@@ -270,22 +320,11 @@ function smokeTest(nodeBin) {
   });
 
   try {
-    const deadline = Date.now() + 20000;
-    let ok = false;
-    while (Date.now() < deadline) {
-      const res = spawnSync('curl', ['-sf', `http://127.0.0.1:${port}/api/health`], {
-        encoding: 'utf8',
-      });
-      if (res.status === 0) {
-        ok = true;
-        break;
-      }
-      sleep(300);
-    }
+    const ok = await waitForHealth(port);
     if (!ok) throw new Error('Health check timed out');
     log('Smoke test passed');
   } finally {
-    child.kill('SIGTERM');
+    child.kill();
     rmrf(cacheDir);
   }
 }
@@ -302,6 +341,7 @@ async function buildPackages() {
 }
 
 async function main() {
+  log(`Staging desktop runtime for ${process.platform} (${resolveArch()})`);
   await buildPackages();
 
   log('Preparing runtime directories…');
@@ -316,12 +356,9 @@ async function main() {
 
   const nodeBin = await ensureNodeBinary();
   npmInstallProduction(nodeBin);
-  smokeTest(nodeBin);
+  await smokeTest(nodeBin);
 
-  const sizeMb =
-    Math.round(
-      walkSize(RUNTIME_ROOT) / (1024 * 1024),
-    );
+  const sizeMb = Math.round(walkSize(RUNTIME_ROOT) / (1024 * 1024));
   log(`Staged runtime at ${RUNTIME_ROOT} (~${sizeMb} MB)`);
 }
 

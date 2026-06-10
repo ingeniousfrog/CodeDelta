@@ -131,7 +131,8 @@ Not implemented yet (planned):
 - [x] Import page recent repositories
 - [x] `npm run dev:desktop` / `stage:desktop` / `build:desktop`
 - [ ] Apple code signing + notarization for public distribution
-- [ ] Windows / Linux desktop
+- [x] Windows desktop (x64 NSIS installer, CI + GitHub Releases)
+- [ ] Linux desktop
 - [ ] Auto-update, menu bar quick open, drag-and-drop import
 
 ## Architecture snapshot

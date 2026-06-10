@@ -14,18 +14,47 @@ pub fn api_base_url() -> String {
 }
 
 fn health_ok() -> bool {
-    let output = Command::new("curl")
-        .args([
-            "-sf",
-            &format!("{}/api/health", api_base_url()),
-        ])
-        .output();
-    matches!(output, Ok(o) if o.status.success())
+    #[cfg(windows)]
+    {
+        let script = format!(
+            "try {{ (Invoke-WebRequest -Uri '{}/api/health' -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200 }} catch {{ $false }}",
+            api_base_url()
+        );
+        let output = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output();
+        return matches!(output, Ok(o) if o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "True");
+    }
+
+    #[cfg(not(windows))]
+    {
+        let output = Command::new("curl")
+            .args(["-sf", &format!("{}/api/health", api_base_url())])
+            .output();
+        matches!(output, Ok(o) if o.status.success())
+    }
 }
 
 fn cache_dir() -> Result<PathBuf, String> {
-    let home = dirs::home_dir().ok_or("Could not resolve home directory")?;
-    Ok(home.join("Library/Application Support/CodeDelta"))
+    let base = dirs::data_dir()
+        .or_else(dirs::home_dir)
+        .ok_or("Could not resolve application data directory")?;
+    Ok(base.join("CodeDelta"))
+}
+
+fn bundled_node_path(runtime: &PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        runtime.join("node/node.exe")
+    }
+    #[cfg(not(windows))]
+    {
+        runtime.join("node/bin/node")
+    }
+}
+
+fn runtime_has_node(runtime: &PathBuf) -> bool {
+    bundled_node_path(runtime).exists()
 }
 
 fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -33,13 +62,12 @@ fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .resource_dir()
         .map_err(|e| e.to_string())?;
-    // Tauri copies `resources/runtime/` → `$RESOURCE/resources/runtime/`.
     let candidates = [
         resource.join("resources/runtime"),
         resource.join("runtime"),
     ];
     for staged in candidates {
-        if staged.join("node/bin/node").exists() {
+        if runtime_has_node(&staged) {
             return Ok(staged);
         }
     }
@@ -48,7 +76,7 @@ fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf, String> {
     {
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let dev_staged = manifest.join("resources/runtime");
-        if dev_staged.join("node/bin/node").exists() {
+        if runtime_has_node(&dev_staged) {
             return Ok(dev_staged);
         }
     }
@@ -77,7 +105,7 @@ fn resolve_server_entry(runtime: &PathBuf) -> Result<PathBuf, String> {
 
 fn spawn_bundled(app: &AppHandle) -> Result<Child, String> {
     let runtime = resolve_runtime_dir(app)?;
-    let node = runtime.join("node/bin/node");
+    let node = bundled_node_path(&runtime);
     let server_js = resolve_server_entry(&runtime)?;
 
     let web_dist = runtime.join("web-dist");
@@ -144,18 +172,45 @@ pub fn stop(_app: &AppHandle) {
 }
 
 pub fn port_in_use_hint() -> Option<String> {
-    let output = Command::new("lsof")
-        .args(["-i", &format!(":{API_PORT}")])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
+    #[cfg(windows)]
+    {
+        let output = Command::new("netstat")
+            .args(["-ano"])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&output.stdout);
+        let needle = format!(":{API_PORT}");
+        let lines: Vec<&str> = text
+            .lines()
+            .filter(|l| l.contains(&needle))
+            .collect();
+        if lines.is_empty() {
+            return None;
+        }
+        return Some(format!(
+            "Port {API_PORT} is already in use. Quit the other CodeDelta or dev server and try again.\n{}",
+            lines.join("\n")
+        ));
     }
-    let text = String::from_utf8_lossy(&output.stdout);
-    if text.trim().is_empty() {
-        return None;
+
+    #[cfg(not(windows))]
+    {
+        let output = Command::new("lsof")
+            .args(["-i", &format!(":{API_PORT}")])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&output.stdout);
+        if text.trim().is_empty() {
+            return None;
+        }
+        Some(format!(
+            "Port {API_PORT} is already in use. Quit the other CodeDelta or dev server and try again.\n{text}"
+        ))
     }
-    Some(format!(
-        "Port {API_PORT} is already in use. Quit the other CodeDelta or dev server and try again.\n{text}"
-    ))
 }
