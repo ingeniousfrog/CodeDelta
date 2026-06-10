@@ -243,7 +243,15 @@ CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 
 | **Windows** (x64) | Same release → `CodeDelta_*_x64-setup.exe` | NSIS installer |
 | macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | |
 
-**Install (macOS):** open the dmg → drag **CodeDelta** to Applications. If blocked: `xattr -cr /Applications/CodeDelta.app`
+**Install (macOS):** open the dmg → drag **CodeDelta** to Applications.
+
+If macOS says **“is damaged and can’t be opened”** after downloading from GitHub/Safari, that is Gatekeeper quarantine on unsigned apps — the app is not corrupt. Fix:
+
+```bash
+xattr -cr /Applications/CodeDelta.app
+```
+
+Then open again, or right-click the app → **Open** the first time. (Baidu Netdisk downloads often need the same `xattr` step.)
 
 **Install (Windows):** run the setup `.exe` and follow the wizard.
 
