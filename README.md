@@ -1,3 +1,13 @@
+<p align="center">
+  <a href="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml"><img src="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml/badge.svg" alt="Desktop macOS CI"/></a>
+  <a href="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml"><img src="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml/badge.svg" alt="Desktop Windows CI"/></a>
+  <a href="https://github.com/ingeniousfrog/CodeDelta/releases"><img src="https://img.shields.io/github/v/release/ingeniousfrog/CodeDelta?label=desktop&color=007ec6" alt="Desktop release"/></a>
+  <img src="https://img.shields.io/badge/Node.js-20--24-339933?logo=node.js&logoColor=white" alt="Node.js 20–24"/>
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/>
+</p>
+
+<p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
+
 <h1 align="left">
   <img src="docs/images/codedelta-app-icon.png" width="44" height="44" alt="CodeDelta icon" />
   CodeDelta
@@ -5,9 +15,97 @@
 
 **Local-first, commit-aware structural code intelligence** — built on [CodeGraph](https://github.com/colbymchenry/codegraph).
 
-CodeDelta shows how a codebase’s **structure** changes between commits: symbols, dependency edges, blast radius, and review-oriented summaries. **Trace View** helps narrow down which commit may have introduced a behavior change, with evidence you can verify in **Delta View**. **Panorama** visualizes call-flow trees at a single commit (or a structural diff overlay between two commits). **Wiki** generates graph-grounded documentation per commit — module pages, Mermaid architecture diagrams derived from real call/import edges, and a citation-backed “Ask this repo” chat.
+CodeDelta answers **“how did this codebase change over time?”** by building a deterministic structural graph at each commit, then diffing, tracing, visualizing, and documenting from that graph — not from line diffs or text-chunk RAG alone.
 
-This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, settings UI).
+| Capability | What you get |
+|------------|--------------|
+| **[Delta View](#delta-view)** | Structural compare between two commits: changed symbols/edges, blast radius, impact score, file diff |
+| **[Trace View](#trace-view)** | Natural-language questions → ranked candidate commits with verifiable evidence |
+| **[Panorama](#panorama)** | Interactive call-flow graph at one commit (or delta-colored overlay between two) |
+| **[Wiki](#wiki-graph-grounded-docs--ask)** | Per-commit docs: TOC, Mermaid diagrams from real graph edges, optional LLM narration, **Ask this repo** chat |
+
+This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, panorama, wiki, settings UI).
+
+## Architecture
+
+### Product flow
+
+How the four views connect around a single imported repository and its commit history:
+
+```mermaid
+flowchart TB
+  Import["Import repo\n(GitHub URL or local path)"]
+  Timeline["Commit timeline\nbranch + history"]
+
+  Import --> Timeline
+
+  Timeline --> Delta["Delta View\nbase → head structural compare"]
+  Timeline --> Trace["Trace View\nwhich commit introduced this?"]
+  Timeline --> Panorama["Panorama\ncall-flow graph at one commit"]
+  Timeline --> Wiki["Wiki\ngenerate docs + Ask"]
+
+  Trace -->|"verify candidate"| Delta
+  Delta -->|"Graph tab / drill-down"| Panorama
+  Wiki -->|"symbol citations"| Panorama
+  Wiki --> Ask["Ask this repo\nLLM + graph evidence whitelist"]
+
+  Provider["Settings → Provider\n(Codex / OpenAI / none)"]
+  Provider -.->|"optional narration"| Trace
+  Provider -.->|"narration + Ask (required)"| Wiki
+```
+
+### Project layout (technical)
+
+```mermaid
+flowchart TB
+  subgraph Clients["Clients"]
+    Web["apps/web\nReact UI"]
+    Desktop["apps/desktop\nTauri 2 + bundled Node 22"]
+  end
+
+  subgraph Server["packages/codedelta-server"]
+    API["REST API\nimport · compare · trace · wiki · panorama"]
+  end
+
+  subgraph Engines["Analysis engines"]
+    Snap["snapshot-manager\nworktree + cache"]
+    Diff["graph-diff · impact-score · delta-summary"]
+    Sub["graph-subgraph\nPanorama layout"]
+    Trace["trace-engine"]
+    WikiEng["wiki-engine\nTOC · pages · Mermaid · Ask retrieval"]
+    Prov["provider-runtime\noptional LLM"]
+  end
+
+  subgraph Core["src/ — CodeGraph"]
+    CG["tree-sitter extract → SQLite\nexportGraph per commit"]
+  end
+
+  subgraph Cache[".codedelta/ (local)"]
+    Repos["repos/ clones"]
+    Snaps["snapshots/ per commit"]
+    Wikis["wiki/ generated pages"]
+  end
+
+  Web --> API
+  Desktop --> API
+  API --> Snap
+  API --> Diff
+  API --> Sub
+  API --> Trace
+  API --> WikiEng
+  API --> Prov
+  Snap --> CG
+  Snap --> Repos
+  Diff --> Snaps
+  Sub --> Snaps
+  Trace --> Snaps
+  WikiEng --> Snaps
+  WikiEng --> Wikis
+  Trace --> Prov
+  WikiEng --> Prov
+```
+
+Wiki generation is **[DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open)-inspired** but **graph-grounded**: TOC, diagrams, and citations come from CodeGraph snapshots; the LLM only adds narrated prose and Ask answers on top of a fixed evidence whitelist (no invented symbols or edges).
 
 ## How CodeDelta differs from CodeGraph and Understand Anything
 
@@ -15,7 +113,7 @@ This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (
 |---|---------------|---------------|-------------------------|
 | **Primary question** | What is the structure *now*? Who calls whom? | How did structure *change* between two commits? Which commit likely introduced a shift? | What does this repo *mean*? How do I onboard onto it? |
 | **Unit of work** | Current workspace / indexed tree | `base commit → head commit` (+ commit-history trace) | Whole repo (or docs) snapshot |
-| **Output** | MCP tools, callers/callees, context for agents | Delta summary, impact score, file diff, trace candidates + evidence | Interactive graph dashboard, tours, plain-English node summaries |
+| **Output** | MCP tools, callers/callees, context for agents | Delta summary, impact score, file diff, trace candidates + evidence, **per-commit Wiki + Ask** | Interactive graph dashboard, tours, plain-English node summaries |
 | **Analysis** | Deterministic tree-sitter graph (SQLite) | Same graph **per commit snapshot**, then structural diff | Multi-agent pipeline + LLM-enriched graph (`.understand-anything/`) |
 | **AI role** | Optional (agent uses graph via MCP) | Optional for Trace (deterministic path always works) | Central to explanations and tours |
 | **Best for** | Day-to-day coding agents, refactors, “where is X?” | Release review, regressions, “when did this behavior start?” | Greenfield onboarding, architecture exploration |
@@ -63,14 +161,21 @@ Describe a bug, behavior change, or question in natural language:
 
 ### Wiki (graph-grounded docs + Ask)
 
-Generate a per-commit wiki from the structural snapshot — inspired by DeepWiki, but grounded in the deterministic CodeGraph graph instead of text-chunk RAG:
+Open **Wiki** from the commit timeline (or `/repos/:id/wiki`). Pick a commit → **Generate wiki** → browse the TOC, read pages, and use **Ask this repo** in the side panel.
 
-- **TOC planned deterministically** from the graph: overview, architecture, one page per top module, plus routes/components when present
-- **Mermaid diagrams serialized from real edges** (module import graph, call flows) — never invented by the model
-- **Per-page citations** to symbols with file/line ranges; symbol citations deep-link into **Panorama**
-- **Ask this repo** — conversational Q&A over the commit (requires a configured LLM provider); retrieval is lexical scoring + graph traversal, answers cite the evidence whitelist
-- **Works without any LLM** for page generation: structural pages, tables, and diagrams are always generated; configure a provider for narrated pages and for Ask
-- Cached under `.codedelta/wiki/` per commit + wiki version; generation runs as a background job with progress
+Inspired by [DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open), but built on **CodeGraph snapshots** instead of embedding/RAG over raw files:
+
+| Layer | LLM required? | Content |
+|-------|---------------|---------|
+| **Structure** | No | TOC (overview, architecture, top modules, routes/components), symbol tables, file lists, README excerpts |
+| **Diagrams** | No | Mermaid module import graph and call flows — **serialized from real edges**, never invented |
+| **Narration** | Optional | Per-page prose when a provider is configured (“with LLM narration”) |
+| **Ask** | **Yes** | Conversational Q&A; lexical + graph retrieval → evidence whitelist → LLM answer with citations |
+
+- **Citations** link symbols to file/line ranges; symbol citations open **Panorama** at the right commit
+- **Ask** bootstraps entry points + README when your question does not match symbols directly
+- Cached under `.codedelta/wiki/<repoId>/<hash>/<wikiVersion>/`; generation is a background job with progress
+- Engine: [`packages/codedelta-wiki-engine/`](packages/codedelta-wiki-engine/)
 
 ### Commit timeline & import
 
@@ -252,7 +357,7 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 
 CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 shells that bundle Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
 
-**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.2.1`). macOS and Windows installers publish to the same GitHub Release: `codedelta-desktop-v0.2.1`.
+**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.2.1`). macOS and Windows installers publish to the same GitHub Release: [`codedelta-desktop-v0.2.1`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1). Desktop bundles include **Delta, Trace, Panorama, and Wiki** (Ask requires a configured LLM provider). **v0.2.0 was withdrawn** — its macOS DMG used a manual packaging path and was ~40 MB larger with no functional benefit; use v0.2.1.
 
 ### Download
 
@@ -260,7 +365,7 @@ CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 
 |----------|------|-------|
 | **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
 | **Windows** (x64) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_x64-setup.exe` | NSIS installer |
-| macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | |
+| macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **Legacy v0.1.0 only** — no Wiki; use [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) for current builds |
 
 **Install (macOS):** open the dmg → drag **CodeDelta** to Applications.
 
@@ -326,7 +431,8 @@ npm run dev:codedelta    # API :3847, web :5173, watches provider-runtime
 npm test -- packages/codedelta-graph-diff packages/codedelta-graph-subgraph \
   packages/codedelta-impact-score packages/codedelta-server \
   packages/codedelta-snapshot-manager packages/codedelta-trace-engine \
-  packages/codedelta-provider-runtime __tests__/codedelta
+  packages/codedelta-wiki-engine packages/codedelta-provider-runtime \
+  __tests__/codedelta
 ```
 
 Environment variables:
