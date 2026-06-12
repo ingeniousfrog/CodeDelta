@@ -1,28 +1,41 @@
-<p align="center">
-  <a href="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml"><img src="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml/badge.svg" alt="Desktop macOS CI"/></a>
-  <a href="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml"><img src="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml/badge.svg" alt="Desktop Windows CI"/></a>
-  <a href="https://github.com/ingeniousfrog/CodeDelta/releases"><img src="https://img.shields.io/github/v/release/ingeniousfrog/CodeDelta?label=desktop&color=007ec6" alt="Desktop release"/></a>
-  <img src="https://img.shields.io/badge/Node.js-20--24-339933?logo=node.js&logoColor=white" alt="Node.js 20–24"/>
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/>
-</p>
+<div align="center">
 
-<p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
+<img src="docs/images/codedelta-app-icon.png" width="72" height="72" alt="CodeDelta" />
 
-<h1 align="left">
-  <img src="docs/images/codedelta-app-icon.png" width="44" height="44" alt="CodeDelta icon" />
-  CodeDelta
-</h1>
+# CodeDelta
 
-**Local-first, commit-aware structural code intelligence** — built on [CodeGraph](https://github.com/colbymchenry/codegraph).
+**Local-first, commit-aware structural code intelligence**
+
+Built on [CodeGraph](https://github.com/colbymchenry/codegraph) · commit-level diff, trace, panorama & wiki
+
+<br/>
+
+[![Desktop macOS CI](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml/badge.svg)](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml)
+[![Desktop Windows CI](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml/badge.svg)](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml)
+[![Desktop release](https://img.shields.io/github/v/release/ingeniousfrog/CodeDelta?label=desktop&color=007ec6)](https://github.com/ingeniousfrog/CodeDelta/releases)
+![Node.js 20–24](https://img.shields.io/badge/Node.js-20--24-339933?logo=node.js&logoColor=white)
+![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)
+
+<br/>
+
+[⬇ Download](#desktop-macos--windows) · [⚡ Quick start](#quick-start) · [📖 简体中文](README.zh-CN.md)
+
+<br/>
+
+**English** · [简体中文](README.zh-CN.md)
+
+</div>
+
+---
 
 CodeDelta answers **“how did this codebase change over time?”** by building a deterministic structural graph at each commit, then diffing, tracing, visualizing, and documenting from that graph — not from line diffs or text-chunk RAG alone.
 
-| Capability | What you get |
-|------------|--------------|
-| **[Delta View](#delta-view)** | Structural compare between two commits: changed symbols/edges, blast radius, impact score, file diff |
-| **[Trace View](#trace-view)** | Natural-language questions → ranked candidate commits with verifiable evidence |
-| **[Panorama](#panorama)** | Interactive call-flow graph at one commit (or delta-colored overlay between two) |
-| **[Wiki](#wiki-graph-grounded-docs--ask)** | Per-commit docs: TOC, Mermaid diagrams from real graph edges, optional LLM narration, **Ask this repo** chat |
+| | Capability | What you get |
+|:--:|------------|--------------|
+| Δ | **[Delta View](#delta-view)** | Structural compare between two commits: symbols, edges, blast radius, impact score, file diff |
+| 🔍 | **[Trace View](#trace-view)** | Natural-language questions → ranked candidate commits with verifiable evidence |
+| ◎ | **[Panorama](#panorama)** | Interactive call-flow graph at one commit (or delta-colored overlay) |
+| 📄 | **[Wiki](#wiki-graph-grounded-docs--ask)** | Per-commit docs, Mermaid from real graph edges, optional LLM narration, **Ask this repo** |
 
 This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, panorama, wiki, settings UI).
 

@@ -1,28 +1,41 @@
-<p align="center">
-  <a href="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml"><img src="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml/badge.svg" alt="Desktop macOS CI"/></a>
-  <a href="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml"><img src="https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml/badge.svg" alt="Desktop Windows CI"/></a>
-  <a href="https://github.com/ingeniousfrog/CodeDelta/releases"><img src="https://img.shields.io/github/v/release/ingeniousfrog/CodeDelta?label=desktop&color=007ec6" alt="Desktop release"/></a>
-  <img src="https://img.shields.io/badge/Node.js-20--24-339933?logo=node.js&logoColor=white" alt="Node.js 20–24"/>
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"/>
-</p>
+<div align="center">
 
-<p align="center"><a href="README.md">English</a> · <strong>简体中文</strong></p>
+<img src="docs/images/codedelta-app-icon.png" width="72" height="72" alt="CodeDelta" />
 
-<h1 align="left">
-  <img src="docs/images/codedelta-app-icon.png" width="44" height="44" alt="CodeDelta icon" />
-  CodeDelta
-</h1>
+# CodeDelta
 
-**本地优先、commit 感知的结构化代码智能** — 基于 [CodeGraph](https://github.com/colbymchenry/codegraph)。
+**本地优先、commit 感知的结构化代码智能**
+
+基于 [CodeGraph](https://github.com/colbymchenry/codegraph) · commit 级 diff、追溯、全景图与 Wiki
+
+<br/>
+
+[![Desktop macOS CI](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml/badge.svg)](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-macos.yml)
+[![Desktop Windows CI](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml/badge.svg)](https://github.com/ingeniousfrog/CodeDelta/actions/workflows/desktop-windows.yml)
+[![Desktop release](https://img.shields.io/github/v/release/ingeniousfrog/CodeDelta?label=desktop&color=007ec6)](https://github.com/ingeniousfrog/CodeDelta/releases)
+![Node.js 20–24](https://img.shields.io/badge/Node.js-20--24-339933?logo=node.js&logoColor=white)
+![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)
+
+<br/>
+
+[⬇ 下载](#桌面版macos-与-windows) · [⚡ 快速开始](#快速开始) · [📖 English](README.md)
+
+<br/>
+
+[English](README.md) · **简体中文**
+
+</div>
+
+---
 
 CodeDelta 回答 **「这个代码库是如何随时间演变的？」**：在每个 commit 上构建确定性的结构图，再基于该图做 diff、追溯、可视化与文档生成 —— 而不是仅依赖行级 diff 或文本分块 RAG。
 
-| 能力 | 你能得到什么 |
-|------|-------------|
-| **[Delta View](#delta-view)** | 两个 commit 之间的结构对比：符号/边变更、影响范围、冲击分数、文件 diff |
-| **[Trace View](#trace-view)** | 自然语言提问 → 按可能性排序的候选 commit + 可验证证据 |
-| **[Panorama](#panorama)** | 单 commit 交互式调用流图（或两 commit 之间的 delta 着色叠加） |
-| **[Wiki](#wiki-基于结构图的文档--ask)** | 按 commit 的文档：目录、来自真实图边的 Mermaid 图、可选 LLM 叙述、**Ask this repo** 对话 |
+| | 能力 | 你能得到什么 |
+|:--:|------|-------------|
+| Δ | **[Delta View](#delta-view)** | 两个 commit 间的结构对比：符号、边、影响范围、冲击分数、文件 diff |
+| 🔍 | **[Trace View](#trace-view)** | 自然语言提问 → 排序后的候选 commit + 可验证证据 |
+| ◎ | **[Panorama](#panorama)** | 单 commit 交互式调用流图（或两 commit 间的 delta 着色叠加） |
+| 📄 | **[Wiki](#wiki-基于结构图的文档--ask)** | 按 commit 的文档、来自真实图边的 Mermaid、可选 LLM 叙述、**Ask this repo** |
 
 本仓库为 fork：**CodeGraph** 引擎在 [`src/`](src/)（CLI + MCP + tree-sitter 图）。**CodeDelta** 应用在 [`packages/`](packages/) 与 [`apps/web/`](apps/web/)（导入、时间线、delta、trace、panorama、wiki、设置 UI）。
 
