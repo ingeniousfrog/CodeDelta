@@ -11,7 +11,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { downloadPanoramaPng, downloadPanoramaSvg } from '../lib/panorama-export';
 import type { PanoramaFocusCrumb } from '../lib/panorama-focus';
@@ -140,7 +140,7 @@ function PanoramaFocusBreadcrumb({
   );
 }
 
-function PanoramaFlowNode({ data }: NodeProps<Node<PanoramaFlowData>>) {
+const PanoramaFlowNode = memo(function PanoramaFlowNode({ data }: NodeProps<Node<PanoramaFlowData>>) {
   const n = data.panorama;
   const fileName = fileBaseName(n.filePath);
   const lineRange =
@@ -203,7 +203,7 @@ function PanoramaFlowNode({ data }: NodeProps<Node<PanoramaFlowData>>) {
       <Handle type="source" position={Position.Bottom} className="panorama-handle" />
     </div>
   );
-}
+});
 
 const nodeTypes = { panorama: PanoramaFlowNode };
 

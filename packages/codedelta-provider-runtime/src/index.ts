@@ -63,21 +63,25 @@ class OpenAiLikeProvider implements ChatProvider {
         ? (this.config.baseUrl ?? 'https://api.openai.com/v1')
         : (this.config.baseUrl as string);
     const model = this.config.model ?? 'gpt-4o-mini';
-    const res = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.config.apiKey as string}`,
+    const res = await fetchWithRetry(
+      `${baseUrl.replace(/\/$/, '')}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.config.apiKey as string}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: input.temperature ?? 0.1,
+          messages: [
+            { role: 'system', content: input.system },
+            ...input.messages.map((m) => ({ role: m.role, content: m.content })),
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model,
-        temperature: input.temperature ?? 0.1,
-        messages: [
-          { role: 'system', content: input.system },
-          ...input.messages.map((m) => ({ role: m.role, content: m.content })),
-        ],
-      }),
-    });
+      { timeoutMs: 120_000, retries: 2 },
+    );
     if (!res.ok) {
       throw new Error(`${this.label} provider failed: HTTP ${res.status}`);
     }

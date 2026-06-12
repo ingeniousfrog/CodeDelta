@@ -3,6 +3,7 @@ import { findCandidateCommits, type TraceCommitContext } from '@codedelta/trace-
 import { getCommitDetail, listCommits } from '@codedelta/repo-manager';
 import type {
   CommitInfo,
+  CompareResponse,
   TraceAnswer,
   TraceCandidateCommit,
   TraceEvidenceItem,
@@ -28,6 +29,20 @@ export class TraceError extends Error {
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
+}
+
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+    for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
+      await fn(item);
+    }
+  });
+  await Promise.all(workers);
 }
 
 function confidenceFromCandidates(candidates: TraceCandidateCommit[], commitCount: number): 'low' | 'medium' | 'high' {
@@ -66,6 +81,29 @@ export async function runTrace(
   }));
 
   const candidates = findCandidateCommits(contexts, query.question, 8);
+
+  // Pre-compute candidate compares with bounded parallelism (snapshot builds are
+  // the expensive part; the singleflight in snapshot-manager dedupes overlapping
+  // parent commits across candidates). Evidence assembly below stays in
+  // deterministic candidate order.
+  const compareResults = new Map<string, { cmp?: CompareResponse; error?: string }>();
+  await mapWithConcurrency(
+    candidates.filter((c) => c.commit.parents[0]),
+    3,
+    async (candidate) => {
+      const prev = candidate.commit.parents[0];
+      if (!prev) return;
+      try {
+        const cmp = await compareCommits(registry, query.repoId, prev, candidate.commit.hash);
+        compareResults.set(candidate.commit.hash, { cmp });
+      } catch (err) {
+        const detail =
+          err instanceof CompareError ? err.message : err instanceof Error ? err.message : String(err);
+        compareResults.set(candidate.commit.hash, { error: detail });
+      }
+    },
+  );
+
   const evidence: TraceEvidenceItem[] = [];
   const uncertainty: string[] = [];
   const uncertaintyEvidenceRefs: string[] = [];
@@ -112,8 +150,9 @@ export async function runTrace(
       continue;
     }
     candidate.previousCommitHash = prev;
-    try {
-      const cmp = await compareCommits(registry, query.repoId, prev, candidate.commit.hash);
+    const result = compareResults.get(candidate.commit.hash);
+    if (result?.cmp) {
+      const cmp = result.cmp;
       candidate.impactSummary = cmp.impact;
       candidate.deltaSummary = cmp.deltaSummary;
 
@@ -186,10 +225,9 @@ export async function runTrace(
           });
         }
       }
-    } catch (err) {
+    } else {
       const unavailableId = `ev-${commitHash}-delta-unavailable`;
-      const detail =
-        err instanceof CompareError ? err.message : err instanceof Error ? err.message : String(err);
+      const detail = result?.error ?? 'Comparison unavailable';
       evidence.push({
         id: unavailableId,
         kind: 'delta-unavailable',

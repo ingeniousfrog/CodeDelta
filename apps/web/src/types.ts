@@ -322,3 +322,78 @@ export interface TraceAnswer {
     nonAuthoritativeText?: string;
   };
 }
+
+// --- Wiki ---
+
+export type WikiSectionKind = 'overview' | 'architecture' | 'module';
+
+export interface WikiSection {
+  id: string;
+  title: string;
+  kind: WikiSectionKind;
+  area?: string;
+  files: string[];
+  symbolCount: number;
+}
+
+export interface WikiToc {
+  repoId: string;
+  commitHash: string;
+  wikiVersion: string;
+  generatedAt: string;
+  sections: WikiSection[];
+}
+
+export interface WikiCitation {
+  id: string;
+  symbol?: string;
+  file: string;
+  startLine?: number;
+  endLine?: number;
+}
+
+export interface WikiPageContent {
+  sectionId: string;
+  title: string;
+  markdown: string;
+  citations: WikiCitation[];
+  llmUsed: boolean;
+  generatedAt: string;
+}
+
+export interface WikiStatus {
+  state: 'absent' | 'generating' | 'ready' | 'error';
+  commitHash?: string;
+  totalSections?: number;
+  completedSections?: number;
+  currentSection?: string;
+  error?: string;
+  jobId?: string;
+  llmUsed?: boolean;
+  generatedAt?: string;
+}
+
+export interface WikiEvidenceItem {
+  id: string;
+  kind: 'symbol' | 'call-path' | 'file' | 'source';
+  title: string;
+  detail: string;
+  file?: string;
+  symbol?: string;
+  startLine?: number;
+  endLine?: number;
+}
+
+export interface WikiAskAnswer {
+  question: string;
+  answer: string;
+  citations: WikiCitation[];
+  evidence: WikiEvidenceItem[];
+  confidence: 'low' | 'medium' | 'high';
+  provider: {
+    type: string;
+    model?: string;
+    used: boolean;
+    nonAuthoritativeText?: string;
+  };
+}

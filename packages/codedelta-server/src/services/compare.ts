@@ -59,8 +59,10 @@ export async function compareCommits(
   let baseSnap;
   let headSnap;
   try {
-    baseSnap = await getOrBuildSnapshot({ ...snapshotOpts, commitHash: baseHash });
-    headSnap = await getOrBuildSnapshot({ ...snapshotOpts, commitHash: headHash });
+    [baseSnap, headSnap] = await Promise.all([
+      getOrBuildSnapshot({ ...snapshotOpts, commitHash: baseHash }),
+      getOrBuildSnapshot({ ...snapshotOpts, commitHash: headHash }),
+    ]);
   } catch (err: unknown) {
     if (err instanceof SnapshotTimeoutError) {
       throw new CompareError(err.message, 504);

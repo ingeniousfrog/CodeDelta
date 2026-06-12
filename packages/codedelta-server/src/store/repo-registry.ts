@@ -5,6 +5,14 @@ import { getCacheRoot, getRegistryPath, getSettingsPath } from '@codedelta/repo-
 
 const DEFAULT_PROVIDER: ModelProviderConfig = { kind: 'none' };
 
+/** Atomic JSON write: temp file + rename so a crash never leaves a half-written file. */
+function writeJsonAtomic(filePath: string, value: unknown): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2) + '\n', 'utf8');
+  fs.renameSync(tmpPath, filePath);
+}
+
 export class RepoRegistry {
   private repos = new Map<string, RepoRef>();
   private readonly cacheRoot: string;
@@ -54,8 +62,7 @@ export class RepoRegistry {
   }
 
   private save(): void {
-    fs.mkdirSync(this.cacheRoot, { recursive: true });
-    fs.writeFileSync(this.registryPath, JSON.stringify(this.list(), null, 2) + '\n', 'utf8');
+    writeJsonAtomic(this.registryPath, this.list());
   }
 }
 
@@ -75,8 +82,7 @@ export class SettingsStore {
 
   setProvider(config: ModelProviderConfig): ModelProviderConfig {
     this.config = { ...config };
-    fs.mkdirSync(path.dirname(this.settingsPath), { recursive: true });
-    fs.writeFileSync(this.settingsPath, JSON.stringify(this.config, null, 2) + '\n', 'utf8');
+    writeJsonAtomic(this.settingsPath, this.config);
     return this.getProvider();
   }
 

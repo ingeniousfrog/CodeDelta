@@ -370,3 +370,96 @@ export interface PanoramaEnrichResult {
   labels: Record<string, string>;
   nonAuthoritative: true;
 }
+
+// ---------------------------------------------------------------------------
+// Wiki (graph-grounded repo documentation + Ask)
+// ---------------------------------------------------------------------------
+
+export type WikiSectionKind = 'overview' | 'architecture' | 'module';
+
+export interface WikiSection {
+  /** Stable slug, e.g. `overview`, `module-src-db`. */
+  id: string;
+  title: string;
+  kind: WikiSectionKind;
+  /** For module pages: the directory area this page documents. */
+  area?: string;
+  /** Files covered by this section (relative paths). */
+  files: string[];
+  symbolCount: number;
+}
+
+export interface WikiToc {
+  repoId: string;
+  commitHash: string;
+  wikiVersion: string;
+  generatedAt: string;
+  sections: WikiSection[];
+}
+
+export interface WikiCitation {
+  /** Evidence id the citation refers to (e.g. `sym-<nodeId>`). */
+  id: string;
+  symbol?: string;
+  file: string;
+  startLine?: number;
+  endLine?: number;
+}
+
+export interface WikiPageContent {
+  sectionId: string;
+  title: string;
+  /** Final markdown: deterministic skeleton, optionally LLM-narrated. */
+  markdown: string;
+  citations: WikiCitation[];
+  llmUsed: boolean;
+  generatedAt: string;
+}
+
+export type WikiJobState = 'queued' | 'running' | 'done' | 'error';
+
+export interface WikiStatus {
+  state: 'absent' | 'generating' | 'ready' | 'error';
+  commitHash?: string;
+  totalSections?: number;
+  completedSections?: number;
+  currentSection?: string;
+  error?: string;
+  jobId?: string;
+  llmUsed?: boolean;
+  generatedAt?: string;
+}
+
+export interface WikiAskRequest {
+  commit: string;
+  question: string;
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
+export type WikiEvidenceKind = 'symbol' | 'call-path' | 'file' | 'source';
+
+export interface WikiEvidenceItem {
+  id: string;
+  kind: WikiEvidenceKind;
+  title: string;
+  detail: string;
+  file?: string;
+  symbol?: string;
+  startLine?: number;
+  endLine?: number;
+}
+
+export interface WikiAskAnswer {
+  question: string;
+  answer: string;
+  /** Citations validated against the evidence whitelist. */
+  citations: WikiCitation[];
+  evidence: WikiEvidenceItem[];
+  confidence: 'low' | 'medium' | 'high';
+  provider: {
+    type: string;
+    model?: string;
+    used: boolean;
+    nonAuthoritativeText?: string;
+  };
+}

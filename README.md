@@ -5,7 +5,7 @@
 
 **Local-first, commit-aware structural code intelligence** — built on [CodeGraph](https://github.com/colbymchenry/codegraph).
 
-CodeDelta shows how a codebase’s **structure** changes between commits: symbols, dependency edges, blast radius, and review-oriented summaries. **Trace View** helps narrow down which commit may have introduced a behavior change, with evidence you can verify in **Delta View**. **Panorama** visualizes call-flow trees at a single commit (or a structural diff overlay between two commits).
+CodeDelta shows how a codebase’s **structure** changes between commits: symbols, dependency edges, blast radius, and review-oriented summaries. **Trace View** helps narrow down which commit may have introduced a behavior change, with evidence you can verify in **Delta View**. **Panorama** visualizes call-flow trees at a single commit (or a structural diff overlay between two commits). **Wiki** generates graph-grounded documentation per commit — module pages, Mermaid architecture diagrams derived from real call/import edges, and a citation-backed “Ask this repo” chat.
 
 This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, settings UI).
 
@@ -61,15 +61,25 @@ Describe a bug, behavior change, or question in natural language:
 
 **Without any LLM configured**, Trace still returns candidates, evidence, and impact radius (evidence-first, no invented facts).
 
+### Wiki (graph-grounded docs + Ask)
+
+Generate a per-commit wiki from the structural snapshot — inspired by DeepWiki, but grounded in the deterministic CodeGraph graph instead of text-chunk RAG:
+
+- **TOC planned deterministically** from the graph: overview, architecture, one page per top module, plus routes/components when present
+- **Mermaid diagrams serialized from real edges** (module import graph, call flows) — never invented by the model
+- **Per-page citations** to symbols with file/line ranges; symbol citations deep-link into **Panorama**
+- **Ask this repo** — conversational Q&A over the commit; retrieval is lexical scoring + graph traversal (no embeddings, no vector DB), answers cite the evidence whitelist
+- **Works without any LLM**: structural pages, tables, and diagrams are always generated; configure a provider to add narrated prose and richer answers
+- Cached under `.codedelta/wiki/` per commit + wiki version; generation runs as a background job with progress
+
 ### Commit timeline & import
 
 - Import a public GitHub repo (`owner/repo` or URL) or a **local git path**
-- Browse commits; open Delta, Trace, or Panorama from the timeline
+- Browse commits; open Delta, Trace, Panorama, or Wiki from the timeline
 
 ## What CodeDelta is not
 
 - **Not a generic Git GUI** — no merge UI or branch workflow
-- **Not a CodeWiki / doc generator** — no long-form auto-docs for the whole repo
 - **Not a line-diff-first tool** — structural delta is the product; text diff supports review
 - **Not a replacement for Understand Anything** — no interactive whole-repo onboarding graph or LLM tours
 
@@ -85,13 +95,14 @@ npm run build:codedelta
 npm run dev:codedelta
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open [http://localhost:3847](http://localhost:3847) (dev mode proxies the Vite UI to the API port; [http://localhost:5173](http://localhost:5173) also works).
 
 1. **Import** a repository (GitHub URL or local path)
 2. **Commit Timeline** — pick a branch and browse history
 3. **Delta View** — choose `Base (before)` and `Head (after)`, then compare
 4. **Trace View** — describe an issue; review candidates and open Delta to verify
 5. **Panorama** — pick branch/commit and explore call trees; drill down from any entry or route
+6. **Wiki** — pick a commit, generate the wiki, browse pages, and ask questions with cited answers
 
 ## UI walkthrough
 
@@ -125,10 +136,16 @@ API: [http://localhost:3847](http://localhost:3847)
 | `POST /api/repos/:id/panorama/enrich` | Optional LLM labels for panorama nodes |
 | `GET /api/repos/:id/diff?base=&head=&file=` | Unified diff for one file |
 | `POST /api/repos/:id/trace` | Trace question → candidates + evidence |
+| `POST /api/repos/:id/wiki/generate?commit=` | Start wiki generation (background job) |
+| `GET /api/repos/:id/wiki/status?commit=` | Generation state + progress |
+| `GET /api/repos/:id/wiki/toc?commit=` | Wiki table of contents |
+| `GET /api/repos/:id/wiki/page?commit=&section=` | One wiki page (markdown + citations) |
+| `GET /api/repos/:id/wiki/asset?commit=&path=` | README / wiki image at commit (git show) |
+| `POST /api/repos/:id/wiki/ask` | Question → cited answer over the commit graph |
 | `GET /api/settings/provider` | Current LLM provider settings |
 | `GET /api/settings/provider/codex-status` | Local Codex CLI login status |
 
-## Configure Codex for Trace View (optional)
+## Configure Codex for Trace View & Wiki (optional)
 
 CodeDelta can reuse your **existing Codex CLI login** — no API key pasted into the web UI.
 
@@ -153,7 +170,7 @@ This creates or updates `~/.codex/auth.json` (ChatGPT OAuth). You can override t
 
 Open **Trace View**, enter a concrete question (file paths, symbols, or config names help), and click **Run trace**.
 
-Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth.
+Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth. The same provider also powers **Wiki** page narration and **Ask** answers; without it, both fall back to deterministic structural output.
 
 ### Codex troubleshooting
 
@@ -174,6 +191,7 @@ Deterministic results always appear; if Codex is configured, the model may refin
 | `.codedelta/repos/<id>/` | Cloned or referenced repositories |
 | `.codedelta/registry.json` | Import registry |
 | `.codedelta/snapshots/<repoId>/<hash>/<analyzerVersion>/` | Per-commit structural snapshots |
+| `.codedelta/wiki/<repoId>/<hash>/<wikiVersion>/` | Generated wiki (toc, pages, meta) |
 | `.codedelta/settings.json` | Provider settings |
 
 Snapshots are built **lazily** on compare/trace — full history is not pre-indexed.
@@ -213,8 +231,9 @@ packages/
   codedelta-impact-score/
   codedelta-delta-summary/
   codedelta-trace-engine/
+  codedelta-wiki-engine/      # Wiki TOC/pages/Mermaid + Ask retrieval
   codedelta-provider-runtime/
-apps/web/                     # React UI (Delta, Trace, Panorama)
+apps/web/                     # React UI (Delta, Trace, Panorama, Wiki)
 apps/desktop/                 # macOS desktop shell (Tauri 2)
 ```
 
@@ -233,13 +252,13 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 
 CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 shells that bundle Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
 
-**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.1.0`). macOS and Windows installers publish to the same GitHub Release: `codedelta-desktop-v0.1.0`.
+**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.2.0`). macOS and Windows installers publish to the same GitHub Release: `codedelta-desktop-v0.2.0`.
 
 ### Download
 
 | Platform | File | Notes |
 |----------|------|-------|
-| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.1.0) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
+| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.0) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
 | **Windows** (x64) | Same release → `CodeDelta_*_x64-setup.exe` | NSIS installer |
 | macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | |
 

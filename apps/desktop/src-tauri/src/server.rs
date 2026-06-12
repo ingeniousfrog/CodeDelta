@@ -150,7 +150,7 @@ pub fn start(app: &AppHandle) -> Result<(), String> {
     }
 
     // Production must spawn the bundled server. Do not attach to a dev API on :3847
-    // (e.g. `npm run dev:desktop`) — it serves API only and shows "Cannot GET /".
+    // unless it serves the UI (CODEDELTA_STATIC_DIR or CODEDELTA_DEV_UI_URL).
     if health_ok() {
         let hint = port_in_use_hint().unwrap_or_default();
         return Err(format!(

@@ -517,7 +517,7 @@ export default function PanoramaPage() {
         <PanoramaGraphView
           graph={graph}
           loading={loading}
-          error={error}
+          error={null}
           enriching={enriching}
           focusTrail={focusTrail}
           onFocusTrailSelect={handleFocusTrailSelect}

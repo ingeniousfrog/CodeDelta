@@ -31,9 +31,9 @@ export function createWorktree(
   return dest;
 }
 
-/** Default worktree path for a repo commit. */
+/** Default worktree path for a repo commit. Full hash avoids prefix collisions. */
 export function worktreePath(options: WorktreeOptions, commitHash: string): string {
-  return path.join(getWorktreesDir(options.cacheRoot, options.repoId), commitHash.slice(0, 12));
+  return path.join(getWorktreesDir(options.cacheRoot, options.repoId), commitHash);
 }
 
 /** Remove a worktree directory. */

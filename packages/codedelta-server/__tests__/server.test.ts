@@ -50,6 +50,28 @@ describe('codedelta-server (no git)', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  it('serves an API-only landing page on GET / when no UI is configured', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codedelta-server-'));
+    const cacheRoot = path.join(tmpDir, '.codedelta');
+    const { app } = createApp({ cacheRoot });
+    const res = await request(app).get('/');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('CodeDelta API is running');
+    expect(res.text).toContain('5173');
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('reports uiMode in health check', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codedelta-server-'));
+    const cacheRoot = path.join(tmpDir, '.codedelta');
+    const { app } = createApp({ cacheRoot, devUiUrl: 'http://localhost:5173' });
+    const res = await request(app).get('/api/health');
+    expect(res.status).toBe(200);
+    expect(res.body.uiMode).toBe('dev-proxy');
+    expect(res.body.servesUi).toBe(true);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
   it('returns codex auth status payload', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codedelta-server-'));
     const cacheRoot = path.join(tmpDir, '.codedelta');

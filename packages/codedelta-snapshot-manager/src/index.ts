@@ -79,7 +79,10 @@ export async function saveSnapshot(
     snapshot.analyzerVersion,
   );
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+  // Atomic write: never leave a half-written snapshot on crash/concurrent read.
+  const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+  fs.renameSync(tmpPath, filePath);
 }
 
 function assertSnapshotSize(snapshot: CodeGraphSnapshot): void {
@@ -135,6 +138,32 @@ async function buildFreshSnapshot(
 }
 
 /**
+ * Singleflight: concurrent requests for the same (repo, commit, analyzer) share
+ * one build instead of racing on the same worktree path and re-indexing twice.
+ */
+const inflightBuilds = new Map<string, Promise<CodeGraphSnapshot>>();
+
+async function buildAndSaveSnapshot(
+  options: GetOrBuildSnapshotOptions,
+  analyzerVersion: string,
+): Promise<CodeGraphSnapshot> {
+  try {
+    const snapshot = await buildFreshSnapshot(options, analyzerVersion);
+    await saveSnapshot(options.cacheRoot, snapshot);
+    return snapshot;
+  } catch (err) {
+    // Warm-up race guard: first compare can transiently fail on cold parser/runtime init.
+    // Retry once before surfacing an error.
+    if (err instanceof SnapshotEmptyError || err instanceof SnapshotTimeoutError) {
+      const snapshot = await buildFreshSnapshot(options, analyzerVersion);
+      await saveSnapshot(options.cacheRoot, snapshot);
+      return snapshot;
+    }
+    throw err;
+  }
+}
+
+/**
  * Load cached snapshot or build via worktree + CodeGraph (fallback to TS/JS scan).
  */
 export async function getOrBuildSnapshot(
@@ -151,18 +180,13 @@ export async function getOrBuildSnapshot(
   );
   if (cached) return cached;
 
-  try {
-    const snapshot = await buildFreshSnapshot(options, analyzerVersion);
-    await saveSnapshot(options.cacheRoot, snapshot);
-    return snapshot;
-  } catch (err) {
-    // Warm-up race guard: first compare can transiently fail on cold parser/runtime init.
-    // Retry once before surfacing an error.
-    if (err instanceof SnapshotEmptyError || err instanceof SnapshotTimeoutError) {
-      const snapshot = await buildFreshSnapshot(options, analyzerVersion);
-      await saveSnapshot(options.cacheRoot, snapshot);
-      return snapshot;
-    }
-    throw err;
-  }
+  const key = `${options.repoId}\u0000${options.commitHash}\u0000${analyzerVersion}`;
+  const inflight = inflightBuilds.get(key);
+  if (inflight) return inflight;
+
+  const promise = buildAndSaveSnapshot(options, analyzerVersion).finally(() => {
+    inflightBuilds.delete(key);
+  });
+  inflightBuilds.set(key, promise);
+  return promise;
 }

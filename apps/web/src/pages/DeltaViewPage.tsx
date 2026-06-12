@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   api,
@@ -192,25 +192,44 @@ export default function DeltaViewPage() {
       });
   }, [repoId]);
 
-  const runCompare = useCallback(async () => {
+  // URL is the single driver for compares; this ref dedupes so a click +
+  // searchParams effect never issue the same request twice.
+  const lastRequestedKeyRef = useRef<string | null>(null);
+
+  const executeCompare = useCallback(
+    async (baseHash: string, headHash: string) => {
+      if (!repoId) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api.compare(repoId, baseHash, headHash);
+        setResult(data);
+        setTab('files');
+        setPanorama(null);
+        setPanoramaRoot('');
+        setPanoramaFocusStack([]);
+      } catch (err) {
+        setResult(null);
+        setError(err instanceof Error ? err.message : 'Compare failed');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [repoId],
+  );
+
+  const runCompare = useCallback(() => {
     if (!repoId || !base || !head) return;
-    setLoading(true);
-    setError(null);
-    setSearchParams({ base, head });
-    try {
-      const data = await api.compare(repoId, base, head);
-      setResult(data);
-      setTab('files');
-      setPanorama(null);
-      setPanoramaRoot('');
-      setPanoramaFocusStack([]);
-    } catch (err) {
-      setResult(null);
-      setError(err instanceof Error ? err.message : 'Compare failed');
-    } finally {
-      setLoading(false);
+    const qBase = searchParams.get('base');
+    const qHead = searchParams.get('head');
+    if (qBase === base && qHead === head) {
+      // URL already matches (e.g. retry after an error): run directly.
+      lastRequestedKeyRef.current = `${base}\u0000${head}`;
+      executeCompare(base, head);
+    } else {
+      setSearchParams({ base, head });
     }
-  }, [repoId, base, head, setSearchParams]);
+  }, [repoId, base, head, searchParams, setSearchParams, executeCompare]);
 
   useEffect(() => {
     const qBase = searchParams.get('base');
@@ -218,10 +237,14 @@ export default function DeltaViewPage() {
     if (qBase) setBase(qBase);
     if (qHead) setHead(qHead);
     if (repoId && qBase && qHead) {
-      runCompare();
+      const key = `${qBase}\u0000${qHead}`;
+      if (lastRequestedKeyRef.current !== key) {
+        lastRequestedKeyRef.current = key;
+        executeCompare(qBase, qHead);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [repoId, searchParams.get('base'), searchParams.get('head')]);
+  }, [repoId, searchParams.get('base'), searchParams.get('head'), executeCompare]);
 
   const loadPanorama = useCallback(
     async (rootOverride?: string) => {
@@ -379,6 +402,13 @@ export default function DeltaViewPage() {
           {loading ? 'Comparing…' : 'Compare'}
         </Button>
       </div>
+
+      {loading && (
+        <p className="hint">
+          Comparing structure… the first compare of a commit builds its structural snapshot, which can take a
+          minute or two on large repositories. Subsequent compares reuse the cache.
+        </p>
+      )}
 
       {error && <Alert variant="error">{error}</Alert>}
 

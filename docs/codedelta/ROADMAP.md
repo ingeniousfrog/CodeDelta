@@ -113,6 +113,31 @@ Not implemented yet (planned):
 - [ ] richer graph-backed evidence (deeper call-path reasoning)
 - [ ] branch/PR/working-tree/folder trace sources
 
+## Phase 3.5 — Wiki (graph-grounded docs + Ask) ✅ (foundation)
+
+- [x] Phase 0 optimizations landed first:
+  - [x] snapshot singleflight + atomic snapshot/registry/settings writes
+  - [x] compare loads base/head snapshots in parallel; trace pre-computes candidate compares with bounded concurrency
+  - [x] OpenAI/OpenAI-compatible provider timeout + retry (shared `fetchWithRetry`)
+  - [x] Delta compare double-request fix; route-level lazy loading; panorama node memoization
+- [x] `@codedelta/wiki-engine`
+  - [x] deterministic TOC planning from snapshot (overview/architecture/modules/routes/components)
+  - [x] Mermaid serialization from real edges (module graph, call flows)
+  - [x] page composition: deterministic markdown core + optional LLM narration with output validation
+  - [x] Ask: lexical scoring + graph traversal retrieval → evidence whitelist → cited answer (deterministic fallback without provider)
+- [x] `@codedelta/server`
+  - [x] generic in-memory `JobStore` for background tasks
+  - [x] `POST /wiki/generate`, `GET /wiki/status`, `GET /wiki/toc`, `GET /wiki/page`, `POST /wiki/ask`
+  - [x] cache under `.codedelta/wiki/<repoId>/<hash>/<wikiVersion>/`
+- [x] `apps/web` Wiki page: commit selector, generation progress, TOC + markdown/mermaid rendering, citations deep-linking to Panorama, Ask chat panel
+
+### Phase 3.5 deferred TODOs
+
+- [ ] wiki regeneration diff (what changed in docs between two commits)
+- [ ] embedding-free semantic re-ranking improvements for Ask retrieval
+- [ ] export wiki as static site / markdown bundle
+- [ ] streaming Ask responses
+
 ## Phase 4 — Depth and polish
 
 - [ ] Deeper CodeGraph integration for snapshots (incremental indexing / reuse)

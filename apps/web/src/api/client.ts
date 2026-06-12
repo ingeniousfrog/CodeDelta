@@ -15,6 +15,10 @@ import type {
   RepoRef,
   TraceAnswer,
   TraceEvidenceItem,
+  WikiAskAnswer,
+  WikiPageContent,
+  WikiStatus,
+  WikiToc,
 } from '../types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -119,6 +123,36 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  generateWiki: (id: string, commit: string) =>
+    request<{ status: string; jobId?: string }>(
+      `/api/repos/${id}/wiki/generate?commit=${encodeURIComponent(commit)}`,
+      { method: 'POST' },
+    ),
+
+  getWikiStatus: (id: string, commit: string) =>
+    request<WikiStatus>(`/api/repos/${id}/wiki/status?commit=${encodeURIComponent(commit)}`),
+
+  getWikiToc: (id: string, commit: string) =>
+    request<WikiToc>(`/api/repos/${id}/wiki/toc?commit=${encodeURIComponent(commit)}`),
+
+  getWikiPage: (id: string, commit: string, section: string) =>
+    request<WikiPageContent>(
+      `/api/repos/${id}/wiki/page?commit=${encodeURIComponent(commit)}&section=${encodeURIComponent(section)}`,
+    ),
+
+  askWiki: (
+    id: string,
+    body: {
+      commit: string;
+      question: string;
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    },
+  ) =>
+    request<WikiAskAnswer>(`/api/repos/${id}/wiki/ask`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 export type {
@@ -137,4 +171,8 @@ export type {
   ProviderKind,
   PanoramaGraph,
   PanoramaEnrichResult,
+  WikiAskAnswer,
+  WikiPageContent,
+  WikiStatus,
+  WikiToc,
 };

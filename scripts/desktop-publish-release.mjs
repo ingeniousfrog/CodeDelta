@@ -38,7 +38,7 @@ function releaseNotes() {
   return [
     `CodeDelta Desktop v${version}`,
     '',
-    'Bundled: web UI (Delta, Trace, Panorama), API server, CodeGraph runtime, and Node 22 — no separate Node install required.',
+    'Bundled: web UI (Delta, Trace, Panorama, Wiki), API server, CodeGraph runtime, and Node 22 — no separate Node install required.',
     '',
     '**Downloads**',
     '- **macOS** (Apple Silicon arm64): `CodeDelta_*_aarch64.dmg` — unsigned; if blocked, right-click → Open',

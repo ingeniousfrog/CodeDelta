@@ -4,14 +4,41 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import express from 'express';
 import cors from 'cors';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { JobStore } from './jobs';
 import { createReposRouter } from './routes/repos';
 import { createSettingsRouter } from './routes/settings';
+import { createWikiRouter } from './routes/wiki';
 import { RepoRegistry, SettingsStore } from './store/repo-registry';
 
 export interface CreateAppOptions {
   cacheRoot?: string;
   /** Serve built web UI from this directory (desktop / single-port production). */
   staticRoot?: string;
+  /** Dev-only: proxy non-API routes to the Vite dev server (e.g. http://localhost:5173). */
+  devUiUrl?: string;
+}
+
+function apiOnlyLandingHtml(viteUrl: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CodeDelta API</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
+    code, pre { background: #f4f4f5; padding: 0.15rem 0.35rem; border-radius: 4px; }
+    pre { padding: 0.75rem; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>CodeDelta API is running</h1>
+  <p>This port serves <code>/api/*</code> only. The React UI is not bundled here in dev mode.</p>
+  <p>Start the full dev stack from the repo root:</p>
+  <pre>npm run dev:codedelta</pre>
+  <p>Then open <a href="${viteUrl}">${viteUrl}</a> (Vite) or enable UI proxy via <code>CODEDELTA_DEV_UI_URL</code> to use this port for the UI too.</p>
+</body>
+</html>`;
 }
 
 function isGitAvailable(): boolean {
@@ -44,6 +71,7 @@ export function resolveCacheRoot(): string | undefined {
 export function createApp(options: CreateAppOptions = {}) {
   const registry = new RepoRegistry(options.cacheRoot);
   const settings = new SettingsStore(options.cacheRoot);
+  const jobs = new JobStore();
 
   const app = express();
   app.use(cors());
@@ -51,15 +79,20 @@ export function createApp(options: CreateAppOptions = {}) {
 
   const gitAvailable = isGitAvailable();
 
+  const uiMode = options.staticRoot ? 'static' : options.devUiUrl ? 'dev-proxy' : 'api-only';
+
   app.get('/api/health', (_req, res) => {
     res.json({
       status: 'ok',
       product: 'CodeDelta',
       gitAvailable,
-      servesUi: Boolean(options.staticRoot),
+      servesUi: uiMode !== 'api-only',
+      uiMode,
+      devUiUrl: options.devUiUrl,
     });
   });
 
+  app.use('/api/repos/:id/wiki', createWikiRouter(registry, settings, jobs));
   app.use('/api/repos', createReposRouter(registry, settings));
   app.use('/api/settings', createSettingsRouter(settings));
 
@@ -78,6 +111,18 @@ export function createApp(options: CreateAppOptions = {}) {
         if (err) next(err);
       });
     });
+  } else if (options.devUiUrl) {
+    app.use(
+      createProxyMiddleware({
+        target: options.devUiUrl,
+        changeOrigin: true,
+        ws: true,
+      }),
+    );
+  } else {
+    app.get('/', (_req, res) => {
+      res.type('html').send(apiOnlyLandingHtml('http://localhost:5173'));
+    });
   }
 
   return { app, registry, settings };
@@ -86,16 +131,28 @@ export function createApp(options: CreateAppOptions = {}) {
 export function startServer(port = 3847, options: CreateAppOptions = {}) {
   const { app } = createApp(options);
   return app.listen(port, () => {
-    const mode = options.staticRoot ? 'API + UI' : 'API';
-    console.log(`CodeDelta ${mode} listening on http://localhost:${port}`);
+    const url = `http://localhost:${port}`;
+    if (options.staticRoot) {
+      console.log(`CodeDelta API + UI listening on ${url}`);
+      return;
+    }
+    if (options.devUiUrl) {
+      console.log(`CodeDelta dev listening on ${url} (UI proxied from ${options.devUiUrl})`);
+      console.log(`Open ${url} in your browser.`);
+      return;
+    }
+    console.log(`CodeDelta API listening on ${url}`);
+    console.log('Web UI: run Vite separately and open http://localhost:5173');
   });
 }
 
 export function resolveServerOptions(): CreateAppOptions {
   const staticDir = process.env.CODEDELTA_STATIC_DIR;
+  const devUiUrl = process.env.CODEDELTA_DEV_UI_URL?.trim();
   return {
     cacheRoot: resolveCacheRoot(),
     staticRoot: staticDir ? path.resolve(staticDir) : undefined,
+    devUiUrl: devUiUrl || undefined,
   };
 }
 
