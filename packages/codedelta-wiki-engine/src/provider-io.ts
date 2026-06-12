@@ -113,8 +113,9 @@ export function validateWikiPageOutput(
 export function buildWikiAskSystemPrompt(): string {
   return [
     'You answer questions about a codebase for CodeDelta Wiki, grounded in structural evidence.',
-    'Use ONLY the evidence items (symbols, call paths, source snippets) provided in the user message.',
+    'Use ONLY the evidence items (symbols, call paths, source snippets, repository overview) provided in the user message.',
     'Never invent files, symbols, call relationships, or behavior.',
+    'For vague questions with only entry-point / overview evidence, explain what you can from that context and suggest concrete symbols or files to ask about next.',
     'Return strict JSON only (no markdown fences), matching this schema:',
     '{',
     '  "answer": string,        // markdown; reference symbols with backticks',

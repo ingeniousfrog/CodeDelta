@@ -33,8 +33,10 @@ export {
   type ValidatedWikiPage,
 } from './provider-io';
 export {
+  bootstrapAskEvidence,
   citationsFromEvidence,
   deterministicAskAnswer,
+  prepareAskRetrieval,
   retrieveAskEvidence,
   tokenizeQuestion,
   type AskRetrievalOptions,

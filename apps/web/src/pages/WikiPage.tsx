@@ -338,8 +338,9 @@ export default function WikiPage() {
               <div className="wiki-chat">
                 {messages.length === 0 && (
                   <p className="hint">
-                    Ask about symbols, flows, or modules. Answers are grounded in the structural graph
-                    and cite verifiable symbols.
+                    Ask in natural language — answers use your configured LLM provider, grounded in
+                    the structural graph (symbols, call paths, README). Configure one in{' '}
+                    <Link to="/settings/provider">Provider Settings</Link> if Ask is disabled.
                   </p>
                 )}
                 {messages.map((m, i) => (
@@ -363,10 +364,7 @@ export default function WikiPage() {
                       </ul>
                     )}
                     {m.role === 'assistant' && m.confidence && (
-                      <p className="hint">
-                        confidence: {m.confidence}
-                        {m.providerUsed === false ? ' · deterministic (no LLM)' : ''}
-                      </p>
+                      <p className="hint">confidence: {m.confidence}</p>
                     )}
                   </div>
                 ))}

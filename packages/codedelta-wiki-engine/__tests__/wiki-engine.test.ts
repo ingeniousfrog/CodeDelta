@@ -9,6 +9,7 @@ import {
   mermaidCallFlow,
   mermaidModuleGraph,
   planWikiToc,
+  prepareAskRetrieval,
   renderDeterministicPage,
   retrieveAskEvidence,
   tokenizeQuestion,
@@ -257,6 +258,13 @@ describe('ask retrieval', () => {
     const answer = deterministicAskAnswer('zzz qqq vvv', result);
     expect(answer.confidence).toBe('low');
     expect(answer.answer).toContain('No symbols');
+  });
+
+  it('prepareAskRetrieval bootstraps entry points when lexical match is empty', () => {
+    const snapshot = makeSnapshot();
+    const result = prepareAskRetrieval(snapshot, 'what is wrong here', readSource);
+    expect(result.matchedNodes.length).toBeGreaterThan(0);
+    expect(result.evidence.some((e) => e.id === 'ctx-repo')).toBe(true);
   });
 
   it('deterministicAskAnswer lists matched symbols and call relationships', () => {

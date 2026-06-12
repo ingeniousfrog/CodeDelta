@@ -68,8 +68,8 @@ Generate a per-commit wiki from the structural snapshot — inspired by DeepWiki
 - **TOC planned deterministically** from the graph: overview, architecture, one page per top module, plus routes/components when present
 - **Mermaid diagrams serialized from real edges** (module import graph, call flows) — never invented by the model
 - **Per-page citations** to symbols with file/line ranges; symbol citations deep-link into **Panorama**
-- **Ask this repo** — conversational Q&A over the commit; retrieval is lexical scoring + graph traversal (no embeddings, no vector DB), answers cite the evidence whitelist
-- **Works without any LLM**: structural pages, tables, and diagrams are always generated; configure a provider to add narrated prose and richer answers
+- **Ask this repo** — conversational Q&A over the commit (requires a configured LLM provider); retrieval is lexical scoring + graph traversal, answers cite the evidence whitelist
+- **Works without any LLM** for page generation: structural pages, tables, and diagrams are always generated; configure a provider for narrated pages and for Ask
 - Cached under `.codedelta/wiki/` per commit + wiki version; generation runs as a background job with progress
 
 ### Commit timeline & import
@@ -170,7 +170,7 @@ This creates or updates `~/.codex/auth.json` (ChatGPT OAuth). You can override t
 
 Open **Trace View**, enter a concrete question (file paths, symbols, or config names help), and click **Run trace**.
 
-Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth. The same provider also powers **Wiki** page narration and **Ask** answers; without it, both fall back to deterministic structural output.
+Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth. The same provider also powers **Wiki** page narration and **Ask** (Ask requires a provider; wiki pages still ship structurally without one).
 
 ### Codex troubleshooting
 
@@ -252,14 +252,14 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 
 CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 shells that bundle Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
 
-**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.2.0`). macOS and Windows installers publish to the same GitHub Release: `codedelta-desktop-v0.2.0`.
+**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.2.1`). macOS and Windows installers publish to the same GitHub Release: `codedelta-desktop-v0.2.1`.
 
 ### Download
 
 | Platform | File | Notes |
 |----------|------|-------|
-| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.0) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
-| **Windows** (x64) | Same release → `CodeDelta_*_x64-setup.exe` | NSIS installer |
+| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
+| **Windows** (x64) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_x64-setup.exe` | NSIS installer |
 | macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | |
 
 **Install (macOS):** open the dmg → drag **CodeDelta** to Applications.

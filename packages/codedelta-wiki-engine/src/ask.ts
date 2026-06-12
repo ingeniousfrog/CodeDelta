@@ -1,4 +1,5 @@
 import type { CodeGraphSnapshot, CodeNode, WikiCitation, WikiEvidenceItem } from '@codedelta/types';
+import { detectEntryPoints } from '@codedelta/graph-subgraph';
 import { evidenceIdForSymbol, type ReadSource } from './page';
 import { isDocumentableSymbol } from './toc';
 
@@ -160,7 +161,85 @@ export function retrieveAskEvidence(
   return { evidence, matchedNodes };
 }
 
-/** Deterministic Ask answer used with the `none` provider or on LLM failure. */
+/**
+ * When lexical retrieval finds no symbol matches, seed the LLM with entry points
+ * and a repo overview so conversational questions still get a useful answer.
+ */
+export function bootstrapAskEvidence(
+  snapshot: CodeGraphSnapshot,
+  readSource: ReadSource,
+  options: AskRetrievalOptions = {},
+): AskRetrievalResult {
+  const maxSymbols = options.maxSymbols ?? 8;
+  const nodeById = new Map(snapshot.nodes.map((n) => [n.id, n]));
+  const entryIds = detectEntryPoints(snapshot, { limit: maxSymbols });
+  const matchedNodes = entryIds
+    .map((id) => nodeById.get(id))
+    .filter((n): n is CodeNode => n !== undefined && isDocumentableSymbol(n));
+
+  const areas = new Map<string, number>();
+  for (const f of snapshot.files) {
+    const top = f.split('/')[0] ?? f;
+    areas.set(top, (areas.get(top) ?? 0) + 1);
+  }
+  const topAreas = [...areas.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([a, n]) => `${a} (${n} files)`)
+    .join(', ');
+
+  let readme = '';
+  for (const candidate of ['README.md', 'readme.md']) {
+    const raw = readSource(candidate);
+    if (raw) {
+      readme = raw.slice(0, 800);
+      break;
+    }
+  }
+
+  const evidence: WikiEvidenceItem[] = [
+    {
+      id: 'ctx-repo',
+      kind: 'source',
+      title: 'Repository overview (no direct symbol match for this question)',
+      detail: [
+        `Commit graph: ${snapshot.files.length} files, ${snapshot.nodeCount} indexed symbols.`,
+        topAreas ? `Top-level areas: ${topAreas}.` : '',
+        readme ? `README excerpt:\n${readme}` : '',
+        'Use the entry-point symbols below as starting points for vague or high-level questions.',
+      ]
+        .filter(Boolean)
+        .join('\n\n'),
+      file: 'README.md',
+    },
+    ...matchedNodes.map((node) => ({
+      id: evidenceIdForSymbol(node),
+      kind: 'symbol' as const,
+      title: node.qualifiedName,
+      detail: `(entry point) ${node.signature ?? `${node.kind} ${node.name}`}`,
+      file: node.filePath,
+      symbol: node.qualifiedName,
+      startLine: node.startLine,
+      endLine: node.endLine,
+    })),
+  ];
+
+  return { evidence, matchedNodes };
+}
+
+/** Lexical retrieval, falling back to entry-point bootstrap when nothing matches. */
+export function prepareAskRetrieval(
+  snapshot: CodeGraphSnapshot,
+  question: string,
+  readSource: ReadSource,
+  options: AskRetrievalOptions = {},
+): AskRetrievalResult {
+  const result = retrieveAskEvidence(snapshot, question, readSource, options);
+  if (result.matchedNodes.length > 0) return result;
+  return bootstrapAskEvidence(snapshot, readSource, options);
+}
+
+/** Deterministic Ask answer (legacy; Wiki Ask now requires a configured provider). */
 export function deterministicAskAnswer(
   question: string,
   result: AskRetrievalResult,

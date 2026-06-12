@@ -28,11 +28,10 @@ import {
   buildWikiPageUserPayload,
   citationsFromEvidence,
   composeWikiPage,
-  deterministicAskAnswer,
   extractJsonObject,
   normalizeWikiAssetPath,
   planWikiToc,
-  retrieveAskEvidence,
+  prepareAskRetrieval,
   rewriteWikiAssetUrls,
   validateWikiAskOutput,
   validateWikiPageOutput,
@@ -347,29 +346,27 @@ export async function askWiki(
   const question = body.question?.trim();
   if (!question) throw new WikiError('question is required', 400);
 
-  const snapshot = await loadSnapshot(registry, repoId, commitHash);
-  const readSource = makeReadSource(ref.clonePath, commitHash);
-  const retrieval = retrieveAskEvidence(snapshot, question, readSource);
-  const deterministic = deterministicAskAnswer(question, retrieval);
-
   const providerConfig = settings.getProvider();
   const provider = createProvider(providerConfig);
+  if (provider.id === 'none' || !provider.isConfigured()) {
+    throw new WikiError(
+      'Wiki Ask requires a configured LLM provider. Open Settings → Provider Settings (Codex OAuth, OpenAI, or compatible).',
+      503,
+    );
+  }
+
+  const snapshot = await loadSnapshot(registry, repoId, commitHash);
+  const readSource = makeReadSource(ref.clonePath, commitHash);
+  const retrieval = prepareAskRetrieval(snapshot, question, readSource);
 
   const answer: WikiAskAnswer = {
     question,
-    answer: deterministic.answer,
-    citations: citationsFromEvidence(
-      retrieval.evidence.filter((e) => e.kind === 'symbol').map((e) => e.id),
-      retrieval.evidence,
-    ),
+    answer: '',
+    citations: [],
     evidence: retrieval.evidence,
-    confidence: deterministic.confidence,
+    confidence: 'low',
     provider: { type: provider.id, model: providerConfig.model, used: false },
   };
-
-  if (provider.id === 'none' || !provider.isConfigured() || retrieval.evidence.length === 0) {
-    return answer;
-  }
 
   try {
     const history = (body.history ?? []).slice(-6);
@@ -406,6 +403,8 @@ export async function askWiki(
       answer.confidence = validated.value.confidence;
       answer.provider = { type: provider.id, model: providerConfig.model, used: true };
     } else {
+      answer.answer =
+        'The model returned a response that could not be validated against the evidence whitelist. Try rephrasing with a concrete symbol, file, or module name.';
       answer.provider = {
         type: provider.id,
         model: providerConfig.model,
@@ -413,8 +412,15 @@ export async function askWiki(
         nonAuthoritativeText: modelText,
       };
     }
-  } catch {
-    // Keep the deterministic answer on provider failure.
+  } catch (err) {
+    throw new WikiError(
+      `Wiki Ask failed: ${err instanceof Error ? err.message : String(err)}`,
+      502,
+    );
+  }
+
+  if (!answer.answer.trim()) {
+    throw new WikiError('Wiki Ask returned an empty answer from the provider.', 502);
   }
 
   return answer;

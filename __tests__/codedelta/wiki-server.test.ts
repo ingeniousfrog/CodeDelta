@@ -151,16 +151,12 @@ describe('codedelta-server wiki (none provider, deterministic path)', () => {
     );
     expect(missing.status).toBe(404);
 
-    // Ask without provider: deterministic answer grounded in matched symbols.
+    // Ask requires a configured LLM provider (default settings use "none").
     const ask = await request(app)
       .post(`/api/repos/${repoId}/wiki/ask`)
       .send({ commit, question: 'how does login validate the user?' });
-    expect(ask.status).toBe(200);
-    expect(ask.body.provider.used).toBe(false);
-    expect(ask.body.answer).toContain('login');
-    expect(Array.isArray(ask.body.citations)).toBe(true);
-    expect(Array.isArray(ask.body.evidence)).toBe(true);
-    expect(ask.body.evidence.length).toBeGreaterThan(0);
+    expect(ask.status).toBe(503);
+    expect(ask.body.error).toContain('Provider Settings');
 
     // Ask validation errors.
     const noQuestion = await request(app).post(`/api/repos/${repoId}/wiki/ask`).send({ commit });
