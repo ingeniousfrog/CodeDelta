@@ -58,6 +58,8 @@ apps/desktop/src-tauri/.cargo-home/
 
 # Local-only docs (not for GitHub)
 docs/codedelta/wechat-article-codedelta.md
+article-new.md
+article-new-assets/
 
 test_frameworks
 
