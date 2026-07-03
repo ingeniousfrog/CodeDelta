@@ -350,7 +350,7 @@ async function analyzeInterval(input: {
   const generatedAt = new Date().toISOString();
   const patch = slicePatch(diff);
   const patchApplies = checkPatchApplies(input.clonePath, input.interval.base, patch);
-  const episodes = validation.value.slices.map((slice, index) =>
+  const episodes = validation.value.slices.map((slice: ValidatedReviewSlice, index: number) =>
     episodeFromSlice({
       repoId: input.repoId,
       repoName: input.repoName,
@@ -364,7 +364,7 @@ async function analyzeInterval(input: {
       slice,
     }),
   );
-  const trainable = episodes.filter((episode) => episode.slice.trainable);
+  const trainable = episodes.filter((episode: CodingEpisode) => episode.slice.trainable);
   if (trainable.length === 0) {
     return {
       episodes,

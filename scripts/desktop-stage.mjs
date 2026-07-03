@@ -31,6 +31,7 @@ const CODEDELTA_PACKAGES = [
   'codedelta-trace-engine',
   'codedelta-snapshot-manager',
   'codedelta-wiki-engine',
+  'codedelta-training-data',
   'codedelta-server',
 ];
 
