@@ -258,13 +258,17 @@ Open [http://localhost:3847](http://localhost:3847) (dev mode proxies the Vite U
 
 ## UI walkthrough
 
+Screenshots from **desktop v0.2.2** (Analysis nav: Delta, Trace, Panorama, Wiki, Training Data).
+
 ### 1) Import repository
 
 ![Import Repository](docs/images/import-view.png)
 
-### 2) Commit timeline
+### 2) Commit timeline & navigation
 
-![Commit Timeline](docs/images/commit-timeline-view.png)
+Browse branch history; the sidebar links to every analysis view once a repo is imported.
+
+![Commit timeline with Analysis navigation](docs/images/commit-timeline-view.png)
 
 ### 3) Delta View (structural compare)
 
@@ -273,6 +277,18 @@ Open [http://localhost:3847](http://localhost:3847) (dev mode proxies the Vite U
 ### 4) Trace View (evidence-first origin analysis)
 
 ![Trace View](docs/images/trace-view-overview.png)
+
+### 5) Panorama (call-flow graph)
+
+![Panorama call-flow graph](docs/images/panorama-view.png)
+
+### 6) Wiki (graph-grounded docs + Ask)
+
+![Wiki page with symbol citations](docs/images/wiki-view.png)
+
+### 7) Training Data (export to SFT / DPO / RL)
+
+![Training Data export — range, filters, formats, JSONL preview](docs/images/training-data-view.png)
 
 File-level modal details are also captured in:
 [`docs/images/delta-file-diff-modal.png`](docs/images/delta-file-diff-modal.png)

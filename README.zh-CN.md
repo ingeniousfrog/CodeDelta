@@ -258,13 +258,17 @@ npm run dev:codedelta
 
 ## 界面导览
 
+以下截图为 **桌面版 v0.2.2**（Analysis 导航含 Delta、Trace、Panorama、Wiki、Training Data）。
+
 ### 1) 导入仓库
 
 ![Import Repository](docs/images/import-view.png)
 
-### 2) Commit 时间线
+### 2) Commit 时间线与导航
 
-![Commit Timeline](docs/images/commit-timeline-view.png)
+浏览分支历史；导入仓库后，侧栏可进入各分析视图。
+
+![Commit 时间线与 Analysis 导航](docs/images/commit-timeline-view.png)
 
 ### 3) Delta View（结构对比）
 
@@ -273,6 +277,18 @@ npm run dev:codedelta
 ### 4) Trace View（证据优先的来源分析）
 
 ![Trace View](docs/images/trace-view-overview.png)
+
+### 5) Panorama（调用流图）
+
+![Panorama 调用流图](docs/images/panorama-view.png)
+
+### 6) Wiki（基于结构图的文档 + Ask）
+
+![Wiki 页面与符号引用](docs/images/wiki-view.png)
+
+### 7) Training Data（导出 SFT / DPO / RL 数据集）
+
+![Training Data 导出 — 区间、过滤器、格式与 JSONL 预览](docs/images/training-data-view.png)
 
 文件级弹窗示例：[`docs/images/delta-file-diff-modal.png`](docs/images/delta-file-diff-modal.png)
 
