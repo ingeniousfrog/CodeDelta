@@ -6,6 +6,9 @@ export interface JobProgress {
   total?: number;
   completed?: number;
   phase?: string;
+  currentCommit?: string;
+  episodes?: number;
+  skipped?: number;
 }
 
 export interface Job {

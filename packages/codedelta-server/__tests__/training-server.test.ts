@@ -77,6 +77,9 @@ describe('training export server API', () => {
     const status = await waitForReady(app, repoId, start.body.exportId as string);
     expect(status.status).toBe(200);
     expect(status.body.state).toBe('ready');
+    expect(status.body.currentStep).toBe('Ready');
+    expect(status.body.completedIntervals).toBe(status.body.totalIntervals);
+    expect(status.body.episodes).toBeGreaterThanOrEqual(0);
     expect(status.body.skipped).toBeGreaterThanOrEqual(1);
 
     const artifacts = await request(app).get(`/api/repos/${repoId}/training/exports/${start.body.exportId}/artifacts`);

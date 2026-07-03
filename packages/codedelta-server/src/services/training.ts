@@ -495,7 +495,14 @@ async function runTrainingExport(input: {
   request: TrainingExportRequest;
   exportId: string;
   provider: ReturnType<typeof createProvider>;
-  report: (progress: { total?: number; completed?: number; phase?: string }) => void;
+  report: (progress: {
+    total?: number;
+    completed?: number;
+    phase?: string;
+    currentCommit?: string;
+    episodes?: number;
+    skipped?: number;
+  }) => void;
 }): Promise<TrainingExportManifest> {
   const ref = requireRepo(input.registry, input.repoId);
   const intervals = planIntervals(ref.clonePath, input.request, ref.defaultBranch);
@@ -503,10 +510,24 @@ async function runTrainingExport(input: {
   const repoName = repoNameFromInput(ref.input);
   const result: ExportRunResult = { episodes: [], skipped: [], warnings: [] };
 
-  input.report({ total: intervals.length, completed: 0, phase: 'planning' });
+  input.report({
+    total: intervals.length,
+    completed: 0,
+    phase: 'Planning intervals',
+    currentCommit: undefined,
+    episodes: 0,
+    skipped: 0,
+  });
   let completed = 0;
   for (const interval of intervals) {
-    input.report({ completed, phase: interval.commit.hash.slice(0, 7) });
+    const currentCommit = interval.commit.hash.slice(0, 7);
+    input.report({
+      completed,
+      phase: 'Analyzing commit',
+      currentCommit,
+      episodes: result.episodes.length,
+      skipped: result.skipped.length,
+    });
     const analyzed = await analyzeInterval({
       registry: input.registry,
       repoId: input.repoId,
@@ -520,9 +541,22 @@ async function runTrainingExport(input: {
     result.skipped = analyzed.skipped ? [...result.skipped, analyzed.skipped] : result.skipped;
     result.warnings = [...result.warnings, ...analyzed.warnings];
     completed += 1;
-    input.report({ completed, phase: interval.commit.hash.slice(0, 7) });
+    input.report({
+      completed,
+      phase: analyzed.skipped ? 'Skipped commit' : 'Generated slices',
+      currentCommit,
+      episodes: result.episodes.length,
+      skipped: result.skipped.length,
+    });
   }
 
+  input.report({
+    completed,
+    phase: 'Writing artifacts',
+    currentCommit: undefined,
+    episodes: result.episodes.length,
+    skipped: result.skipped.length,
+  });
   return writeArtifacts({
     cacheRoot: input.registry.getCacheRoot(),
     repoId: input.repoId,
@@ -570,7 +604,10 @@ export function getTrainingExportStatus(
         jobId: job.id,
         totalIntervals: job.progress.total,
         completedIntervals: job.progress.completed,
-        currentCommit: job.progress.phase,
+        currentStep: job.progress.phase,
+        currentCommit: job.progress.currentCommit,
+        episodes: job.progress.episodes,
+        skipped: job.progress.skipped,
         error: job.error,
       };
     }
@@ -581,7 +618,10 @@ export function getTrainingExportStatus(
         jobId: job.id,
         totalIntervals: job.progress.total,
         completedIntervals: job.progress.completed,
-        currentCommit: job.progress.phase,
+        currentStep: job.progress.phase,
+        currentCommit: job.progress.currentCommit,
+        episodes: job.progress.episodes,
+        skipped: job.progress.skipped,
       };
     }
   }
@@ -593,6 +633,7 @@ export function getTrainingExportStatus(
       exportId,
       totalIntervals: manifest.counts.intervals,
       completedIntervals: manifest.counts.intervals,
+      currentStep: 'Ready',
       episodes: manifest.counts.episodes,
       skipped: manifest.counts.skipped,
       artifacts: manifest.artifacts,

@@ -6,7 +6,7 @@
 
 **Local-first, commit-aware structural code intelligence**
 
-Built on [CodeGraph](https://github.com/colbymchenry/codegraph) · commit-level diff, trace, panorama & wiki
+Built on [CodeGraph](https://github.com/colbymchenry/codegraph) · commit-level diff, trace, panorama, wiki & training data
 
 <br/>
 
@@ -28,7 +28,7 @@ Built on [CodeGraph](https://github.com/colbymchenry/codegraph) · commit-level 
 
 ---
 
-CodeDelta answers **“how did this codebase change over time?”** by building a deterministic structural graph at each commit, then diffing, tracing, visualizing, and documenting from that graph — not from line diffs or text-chunk RAG alone.
+CodeDelta answers **“how did this codebase change over time?”** by building a deterministic structural graph at each commit, then diffing, tracing, visualizing, documenting, and exporting training data from that graph — not from line diffs or text-chunk RAG alone.
 
 | | Capability | What you get |
 |:--:|------------|--------------|
@@ -36,14 +36,15 @@ CodeDelta answers **“how did this codebase change over time?”** by building 
 | 🔍 | **[Trace View](#trace-view)** | Natural-language questions → ranked candidate commits with verifiable evidence |
 | ◎ | **[Panorama](#panorama)** | Interactive call-flow graph at one commit (or delta-colored overlay) |
 | 📄 | **[Wiki](#wiki-graph-grounded-docs--ask)** | Per-commit docs, Mermaid from real graph edges, optional LLM narration, **Ask this repo** |
+| 🧠 | **[Training Data](#training-data-export)** | Export commit history to SFT/DPO/RL datasets (canonical, Alpaca, ShareGPT, DPO, RL) |
 
-This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, panorama, wiki, settings UI).
+This repository is a fork: the **CodeGraph** engine lives under [`src/`](src/) (CLI + MCP + tree-sitter graph). The **CodeDelta** app lives under [`packages/`](packages/) and [`apps/web/`](apps/web/) (import, timeline, delta, trace, panorama, wiki, training data, settings UI).
 
 ## Architecture
 
 ### Product flow
 
-How the four views connect around a single imported repository and its commit history:
+How the views connect around a single imported repository and its commit history:
 
 ```mermaid
 flowchart TB
@@ -56,15 +57,18 @@ flowchart TB
   Timeline --> Trace["Trace View\nwhich commit introduced this?"]
   Timeline --> Panorama["Panorama\ncall-flow graph at one commit"]
   Timeline --> Wiki["Wiki\ngenerate docs + Ask"]
+  Timeline --> Training["Training Data\nexport commit episodes"]
 
   Trace -->|"verify candidate"| Delta
   Delta -->|"Graph tab / drill-down"| Panorama
   Wiki -->|"symbol citations"| Panorama
   Wiki --> Ask["Ask this repo\nLLM + graph evidence whitelist"]
+  Training -->|"episodes from diffs"| Delta
 
   Provider["Settings → Provider\n(Codex / OpenAI / none)"]
   Provider -.->|"optional narration"| Trace
   Provider -.->|"narration + Ask (required)"| Wiki
+  Provider -.->|"slice review (required)"| Training
 ```
 
 ### Project layout (technical)
@@ -77,7 +81,7 @@ flowchart TB
   end
 
   subgraph Server["packages/codedelta-server"]
-    API["REST API\nimport · compare · trace · wiki · panorama"]
+    API["REST API\nimport · compare · trace · wiki · panorama · training"]
   end
 
   subgraph Engines["Analysis engines"]
@@ -86,6 +90,7 @@ flowchart TB
     Sub["graph-subgraph\nPanorama layout"]
     Trace["trace-engine"]
     WikiEng["wiki-engine\nTOC · pages · Mermaid · Ask retrieval"]
+    TrainEng["training-data\nCodingEpisode · exporters"]
     Prov["provider-runtime\noptional LLM"]
   end
 
@@ -97,6 +102,7 @@ flowchart TB
     Repos["repos/ clones"]
     Snaps["snapshots/ per commit"]
     Wikis["wiki/ generated pages"]
+    TrainingCache["training/ exports"]
   end
 
   Web --> API
@@ -106,6 +112,7 @@ flowchart TB
   API --> Sub
   API --> Trace
   API --> WikiEng
+  API --> TrainEng
   API --> Prov
   Snap --> CG
   Snap --> Repos
@@ -114,8 +121,11 @@ flowchart TB
   Trace --> Snaps
   WikiEng --> Snaps
   WikiEng --> Wikis
+  TrainEng --> Snaps
+  TrainEng --> TrainingCache
   Trace --> Prov
   WikiEng --> Prov
+  TrainEng --> Prov
 ```
 
 Wiki generation is **[DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open)-inspired** but **graph-grounded**: TOC, diagrams, and citations come from CodeGraph snapshots; the LLM only adds narrated prose and Ask answers on top of a fixed evidence whitelist (no invented symbols or edges).
@@ -126,9 +136,9 @@ Wiki generation is **[DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open)-in
 |---|---------------|---------------|-------------------------|
 | **Primary question** | What is the structure *now*? Who calls whom? | How did structure *change* between two commits? Which commit likely introduced a shift? | What does this repo *mean*? How do I onboard onto it? |
 | **Unit of work** | Current workspace / indexed tree | `base commit → head commit` (+ commit-history trace) | Whole repo (or docs) snapshot |
-| **Output** | MCP tools, callers/callees, context for agents | Delta summary, impact score, file diff, trace candidates + evidence, **per-commit Wiki + Ask** | Interactive graph dashboard, tours, plain-English node summaries |
+| **Output** | MCP tools, callers/callees, context for agents | Delta summary, impact score, file diff, trace candidates + evidence, **per-commit Wiki + Ask**, **training datasets** | Interactive graph dashboard, tours, plain-English node summaries |
 | **Analysis** | Deterministic tree-sitter graph (SQLite) | Same graph **per commit snapshot**, then structural diff | Multi-agent pipeline + LLM-enriched graph (`.understand-anything/`) |
-| **AI role** | Optional (agent uses graph via MCP) | Optional for Trace (deterministic path always works) | Central to explanations and tours |
+| **AI role** | Optional (agent uses graph via MCP) | Optional for Trace; required for Wiki Ask and Training export slice review | Central to explanations and tours |
 | **Best for** | Day-to-day coding agents, refactors, “where is X?” | Release review, regressions, “when did this behavior start?” | Greenfield onboarding, architecture exploration |
 
 **Use together:** CodeGraph (or CodeDelta’s embedded engine) for **live** structure; CodeDelta when you care about **history and commit-level risk**; Understand Anything when you need a **guided map of the whole repo** for humans joining the project — not a substitute for commit-to-commit structural delta.
@@ -190,10 +200,33 @@ Inspired by [DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open), but built 
 - Cached under `.codedelta/wiki/<repoId>/<hash>/<wikiVersion>/`; generation is a background job with progress
 - Engine: [`packages/codedelta-wiki-engine/`](packages/codedelta-wiki-engine/)
 
+### Training Data export
+
+Open **Training Data** from the nav bar (or `/repos/:id/training`). Turn commit history into **CodingEpisode** records — structured instruction/patch pairs grounded in real diffs and graph context, then export as training datasets.
+
+| Mode | Description |
+|------|-------------|
+| **Range** | Pick **Before** and **After** commits on a branch; export every parent→child interval in between |
+| **History** | Walk recent branch history with configurable filters (skip merges, docs-only, huge diffs, etc.) |
+
+| Format | Use case |
+|--------|----------|
+| `canonical` | CodeDelta `CodingEpisode` JSONL (schema `codedelta.coding_episode.v1`) |
+| `alpaca` | Instruction / input / output rows for supervised fine-tuning |
+| `sharegpt` | Multi-turn `conversations` JSONL |
+| `dpo` | Chosen/rejected pairs for preference tuning |
+| `rl` | Task manifests for RL-style pipelines |
+
+- **Requires a configured LLM provider** — the model reviews each commit interval and splits diffs into trainable slices (with skip reasons when not suitable)
+- Deterministic pre-filters skip noise (lockfile-only, format-only, rename-only, etc.) before calling the model
+- Background job with progress; download artifacts when ready
+- Cached under `.codedelta/training/<repoId>/exports/<exportId>/`
+- Engine: [`packages/codedelta-training-data/`](packages/codedelta-training-data/)
+
 ### Commit timeline & import
 
 - Import a public GitHub repo (`owner/repo` or URL) or a **local git path**
-- Browse commits; open Delta, Trace, Panorama, or Wiki from the timeline
+- Browse commits; open Delta, Trace, Panorama, Wiki, or Training Data from the timeline / nav
 
 ## What CodeDelta is not
 
@@ -221,6 +254,7 @@ Open [http://localhost:3847](http://localhost:3847) (dev mode proxies the Vite U
 4. **Trace View** — describe an issue; review candidates and open Delta to verify
 5. **Panorama** — pick branch/commit and explore call trees; drill down from any entry or route
 6. **Wiki** — pick a commit, generate the wiki, browse pages, and ask questions with cited answers
+7. **Training Data** — export a commit range or branch history to SFT/DPO/RL datasets (provider required)
 
 ## UI walkthrough
 
@@ -260,10 +294,14 @@ API: [http://localhost:3847](http://localhost:3847)
 | `GET /api/repos/:id/wiki/page?commit=&section=` | One wiki page (markdown + citations) |
 | `GET /api/repos/:id/wiki/asset?commit=&path=` | README / wiki image at commit (git show) |
 | `POST /api/repos/:id/wiki/ask` | Question → cited answer over the commit graph |
+| `POST /api/repos/:id/training/export` | Start training export (background job) |
+| `GET /api/repos/:id/training/exports/:exportId/status` | Export job state + progress |
+| `GET /api/repos/:id/training/exports/:exportId/artifacts` | List generated files |
+| `GET /api/repos/:id/training/exports/:exportId/download?format=` | Download JSONL / manifest |
 | `GET /api/settings/provider` | Current LLM provider settings |
 | `GET /api/settings/provider/codex-status` | Local Codex CLI login status |
 
-## Configure Codex for Trace View & Wiki (optional)
+## Configure Codex for Trace, Wiki & Training (optional)
 
 CodeDelta can reuse your **existing Codex CLI login** — no API key pasted into the web UI.
 
@@ -288,7 +326,7 @@ This creates or updates `~/.codex/auth.json` (ChatGPT OAuth). You can override t
 
 Open **Trace View**, enter a concrete question (file paths, symbols, or config names help), and click **Run trace**.
 
-Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth. The same provider also powers **Wiki** page narration and **Ask** (Ask requires a provider; wiki pages still ship structurally without one).
+Deterministic results always appear; if Codex is configured, the model may refine the narrative. Model output is **non-authoritative** — evidence and Delta verification are the source of truth. The same provider also powers **Wiki** page narration and **Ask** (Ask requires a provider; wiki pages still ship structurally without one), and **Training Data** export slice review (provider required).
 
 ### Codex troubleshooting
 
@@ -310,6 +348,7 @@ Deterministic results always appear; if Codex is configured, the model may refin
 | `.codedelta/registry.json` | Import registry |
 | `.codedelta/snapshots/<repoId>/<hash>/<analyzerVersion>/` | Per-commit structural snapshots |
 | `.codedelta/wiki/<repoId>/<hash>/<wikiVersion>/` | Generated wiki (toc, pages, meta) |
+| `.codedelta/training/<repoId>/exports/<exportId>/` | Training export artifacts + manifest |
 | `.codedelta/settings.json` | Provider settings |
 
 Snapshots are built **lazily** on compare/trace — full history is not pre-indexed.
@@ -350,9 +389,10 @@ packages/
   codedelta-delta-summary/
   codedelta-trace-engine/
   codedelta-wiki-engine/      # Wiki TOC/pages/Mermaid + Ask retrieval
+  codedelta-training-data/    # CodingEpisode export + dataset serializers
   codedelta-provider-runtime/
-apps/web/                     # React UI (Delta, Trace, Panorama, Wiki)
-apps/desktop/                 # macOS desktop shell (Tauri 2)
+apps/web/                     # React UI (Delta, Trace, Panorama, Wiki, Training)
+apps/desktop/                 # macOS + Windows desktop shell (Tauri 2)
 ```
 
 Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md).
@@ -370,15 +410,15 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 
 CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 shells that bundle Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
 
-**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently `0.2.1`). macOS and Windows installers publish to the same GitHub Release: [`codedelta-desktop-v0.2.1`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1). Desktop bundles include **Delta, Trace, Panorama, and Wiki** (Ask requires a configured LLM provider). **v0.2.0 was withdrawn** — its macOS DMG used a manual packaging path and was ~40 MB larger with no functional benefit; use v0.2.1.
+**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently **0.2.2**). macOS and Windows installers publish to the same GitHub Release: [`codedelta-desktop-v0.2.2`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2). Desktop bundles include **Delta, Trace, Panorama, Wiki, and Training Data** (Wiki Ask and Training export require a configured LLM provider).
 
 ### Download
 
 | Platform | File | Notes |
 |----------|------|-------|
-| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
-| **Windows** (x64) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_x64-setup.exe` | NSIS installer |
-| macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **Legacy v0.1.0 only** — no Wiki; use [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) for current builds |
+| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
+| **Windows** (x64) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_x64-setup.exe` | NSIS installer |
+| macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **Legacy v0.1.0 only** — no Wiki / Training; use [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) for current builds |
 
 **Install (macOS):** open the dmg → drag **CodeDelta** to Applications.
 
@@ -444,8 +484,8 @@ npm run dev:codedelta    # API :3847, web :5173, watches provider-runtime
 npm test -- packages/codedelta-graph-diff packages/codedelta-graph-subgraph \
   packages/codedelta-impact-score packages/codedelta-server \
   packages/codedelta-snapshot-manager packages/codedelta-trace-engine \
-  packages/codedelta-wiki-engine packages/codedelta-provider-runtime \
-  __tests__/codedelta
+  packages/codedelta-wiki-engine packages/codedelta-training-data \
+  packages/codedelta-provider-runtime __tests__/codedelta
 ```
 
 Environment variables:

@@ -6,7 +6,7 @@
 
 **本地优先、commit 感知的结构化代码智能**
 
-基于 [CodeGraph](https://github.com/colbymchenry/codegraph) · commit 级 diff、追溯、全景图与 Wiki
+基于 [CodeGraph](https://github.com/colbymchenry/codegraph) · commit 级 diff、追溯、全景图、Wiki 与训练数据导出
 
 <br/>
 
@@ -28,7 +28,7 @@
 
 ---
 
-CodeDelta 回答 **「这个代码库是如何随时间演变的？」**：在每个 commit 上构建确定性的结构图，再基于该图做 diff、追溯、可视化与文档生成 —— 而不是仅依赖行级 diff 或文本分块 RAG。
+CodeDelta 回答 **「这个代码库是如何随时间演变的？」**：在每个 commit 上构建确定性的结构图，再基于该图做 diff、追溯、可视化、文档生成与训练数据导出 —— 而不是仅依赖行级 diff 或文本分块 RAG。
 
 | | 能力 | 你能得到什么 |
 |:--:|------|-------------|
@@ -36,14 +36,15 @@ CodeDelta 回答 **「这个代码库是如何随时间演变的？」**：在�
 | 🔍 | **[Trace View](#trace-view)** | 自然语言提问 → 排序后的候选 commit + 可验证证据 |
 | ◎ | **[Panorama](#panorama)** | 单 commit 交互式调用流图（或两 commit 间的 delta 着色叠加） |
 | 📄 | **[Wiki](#wiki-基于结构图的文档--ask)** | 按 commit 的文档、来自真实图边的 Mermaid、可选 LLM 叙述、**Ask this repo** |
+| 🧠 | **[Training Data](#training-data-训练数据导出)** | 将 commit 历史导出为 SFT/DPO/RL 数据集（canonical、Alpaca、ShareGPT、DPO、RL） |
 
-本仓库为 fork：**CodeGraph** 引擎在 [`src/`](src/)（CLI + MCP + tree-sitter 图）。**CodeDelta** 应用在 [`packages/`](packages/) 与 [`apps/web/`](apps/web/)（导入、时间线、delta、trace、panorama、wiki、设置 UI）。
+本仓库为 fork：**CodeGraph** 引擎在 [`src/`](src/)（CLI + MCP + tree-sitter 图）。**CodeDelta** 应用在 [`packages/`](packages/) 与 [`apps/web/`](apps/web/)（导入、时间线、delta、trace、panorama、wiki、训练数据、设置 UI）。
 
 ## 架构
 
 ### 产品流程
 
-四个视图如何围绕同一仓库及其 commit 历史协作：
+各视图如何围绕同一仓库及其 commit 历史协作：
 
 ```mermaid
 flowchart TB
@@ -56,15 +57,18 @@ flowchart TB
   Timeline --> Trace["Trace View\n哪个 commit 引入的？"]
   Timeline --> Panorama["Panorama\n单 commit 调用流图"]
   Timeline --> Wiki["Wiki\n生成文档 + Ask"]
+  Timeline --> Training["Training Data\n导出 commit 样本"]
 
   Trace -->|"验证候选"| Delta
   Delta -->|"Graph 标签 / 下钻"| Panorama
   Wiki -->|"符号引用"| Panorama
   Wiki --> Ask["Ask this repo\nLLM + 图证据白名单"]
+  Training -->|"diff 生成 episode"| Delta
 
   Provider["设置 → Provider\n(Codex / OpenAI / 无)"]
   Provider -.->|"可选叙述"| Trace
   Provider -.->|"叙述 + Ask（必需）"| Wiki
+  Provider -.->|"切片审查（必需）"| Training
 ```
 
 ### 项目结构（技术）
@@ -77,7 +81,7 @@ flowchart TB
   end
 
   subgraph Server["packages/codedelta-server"]
-    API["REST API\n导入 · compare · trace · wiki · panorama"]
+    API["REST API\n导入 · compare · trace · wiki · panorama · training"]
   end
 
   subgraph Engines["分析引擎"]
@@ -86,6 +90,7 @@ flowchart TB
     Sub["graph-subgraph\nPanorama 布局"]
     Trace["trace-engine"]
     WikiEng["wiki-engine\n目录 · 页面 · Mermaid · Ask 检索"]
+    TrainEng["training-data\nCodingEpisode · 导出器"]
     Prov["provider-runtime\n可选 LLM"]
   end
 
@@ -97,6 +102,7 @@ flowchart TB
     Repos["repos/ 克隆"]
     Snaps["snapshots/ 每 commit"]
     Wikis["wiki/ 生成的页面"]
+    TrainingCache["training/ 导出文件"]
   end
 
   Web --> API
@@ -106,6 +112,7 @@ flowchart TB
   API --> Sub
   API --> Trace
   API --> WikiEng
+  API --> TrainEng
   API --> Prov
   Snap --> CG
   Snap --> Repos
@@ -114,8 +121,11 @@ flowchart TB
   Trace --> Snaps
   WikiEng --> Snaps
   WikiEng --> Wikis
+  TrainEng --> Snaps
+  TrainEng --> TrainingCache
   Trace --> Prov
   WikiEng --> Prov
+  TrainEng --> Prov
 ```
 
 Wiki 生成借鉴 [DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open)，但采用 **图 grounding**：目录、图表与引用来自 CodeGraph 快照；LLM 仅在固定证据白名单之上添加叙述段落与 Ask 回答（不编造符号或边）。
@@ -126,9 +136,9 @@ Wiki 生成借鉴 [DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open)，但
 |---|---------------|---------------|-------------------------|
 | **核心问题** | 当前结构是什么？谁调用谁？ | 两个 commit 之间结构如何变化？哪个 commit 可能引入了变化？ | 这个仓库在讲什么？如何上手？ |
 | **工作单元** | 当前工作区 / 已索引树 | `base commit → head commit`（+ 历史 trace） | 整库（或文档）快照 |
-| **输出** | MCP 工具、callers/callees、agent 上下文 | Delta 摘要、冲击分数、文件 diff、trace 候选 + 证据、**按 commit 的 Wiki + Ask** | 交互式全库图、导览、节点 plain-English 摘要 |
-| **分析方式** | 确定性 tree-sitter 图（SQLite） | 每 commit 快照上的同一套图，再做结构 diff | 多 agent 流水线 + LLM  enriched 图 |
-| **AI 角色** | 可选（agent 经 MCP 用图） | Trace 可选（无 LLM 时确定性路径仍可用） | 解释与导览的核心 |
+| **输出** | MCP 工具、callers/callees、agent 上下文 | Delta 摘要、冲击分数、文件 diff、trace 候选 + 证据、**按 commit 的 Wiki + Ask**、**训练数据集** | 交互式全库图、导览、节点 plain-English 摘要 |
+| **分析方式** | 确定性 tree-sitter 图（SQLite） | 每 commit 快照上的同一套图，再做结构 diff | 多 agent 流水线 + LLM enriched 图 |
+| **AI 角色** | 可选（agent 经 MCP 用图） | Trace 可选；Wiki Ask 与 Training 导出切片审查需 LLM | 解释与导览的核心 |
 | **最适合** | 日常编码 agent、重构、「X 在哪？」 | 发版审查、回归、「行为从哪次 commit 开始变？」 | 新人 onboarding、架构探索 |
 
 **组合使用：** CodeGraph（或 CodeDelta 内置引擎）看 **实时** 结构；CodeDelta 关注 **历史与 commit 级风险**；Understand Anything 适合 **整库导览** —— 不能替代 commit 间的结构 delta。
@@ -190,10 +200,33 @@ Wiki 生成借鉴 [DeepWiki](https://github.com/AsyncFuncAI/deepwiki-open)，但
 - 缓存于 `.codedelta/wiki/<repoId>/<hash>/<wikiVersion>/`；生成为带进度的后台任务
 - 引擎：[`packages/codedelta-wiki-engine/`](packages/codedelta-wiki-engine/)
 
+### Training Data（训练数据导出）
+
+从导航栏打开 **Training Data**（或 `/repos/:id/training`）。将 commit 历史转为 **CodingEpisode** 记录 —— 基于真实 diff 与图上下文的结构化 instruction/patch 对，再导出为训练数据集。
+
+| 模式 | 说明 |
+|------|------|
+| **Range** | 在分支上选择 **Before** 与 **After** commit，导出其间每个 parent→child 区间 |
+| **History** | 遍历近期分支历史，可配置过滤器（跳过 merge、仅文档、超大 diff 等） |
+
+| 格式 | 用途 |
+|------|------|
+| `canonical` | CodeDelta `CodingEpisode` JSONL（schema `codedelta.coding_episode.v1`） |
+| `alpaca` | instruction / input / output，用于监督微调 |
+| `sharegpt` | 多轮 `conversations` JSONL |
+| `dpo` | chosen/rejected 对，用于偏好对齐 |
+| `rl` | RL 流水线任务清单 |
+
+- **必须配置 LLM Provider** —— 模型审查每个 commit 区间并将 diff 切分为可训练切片（不适合时会记录跳过原因）
+- 调用模型前有确定性预过滤（仅 lockfile、仅格式化、仅重命名等）
+- 后台任务带进度；完成后可下载产物
+- 缓存于 `.codedelta/training/<repoId>/exports/<exportId>/`
+- 引擎：[`packages/codedelta-training-data/`](packages/codedelta-training-data/)
+
 ### Commit 时间线与导入
 
 - 导入公开 GitHub 仓库（`owner/repo` 或 URL）或 **本地 git 路径**
-- 浏览 commit；从时间线打开 Delta、Trace、Panorama 或 Wiki
+- 浏览 commit；从时间线 / 导航打开 Delta、Trace、Panorama、Wiki 或 Training Data
 
 ## CodeDelta 不是什么
 
@@ -221,6 +254,7 @@ npm run dev:codedelta
 4. **Trace View** — 描述问题；查看候选并在 Delta 中验证
 5. **Panorama** — 选分支/commit 探索调用树；从任意入口或路由下钻
 6. **Wiki** — 选 commit、生成 wiki、浏览页面，并用带引用的 Ask 提问
+7. **Training Data** — 导出 commit 区间或分支历史为 SFT/DPO/RL 数据集（需配置 Provider）
 
 ## 界面导览
 
@@ -259,10 +293,14 @@ API：[http://localhost:3847](http://localhost:3847)
 | `GET /api/repos/:id/wiki/page?commit=&section=` | 单页（markdown + 引用） |
 | `GET /api/repos/:id/wiki/asset?commit=&path=` | commit 上的 README / wiki 图片 |
 | `POST /api/repos/:id/wiki/ask` | 问题 → 基于 commit 图的带引用回答 |
+| `POST /api/repos/:id/training/export` | 开始训练数据导出（后台任务） |
+| `GET /api/repos/:id/training/exports/:exportId/status` | 导出任务状态与进度 |
+| `GET /api/repos/:id/training/exports/:exportId/artifacts` | 列出生成的文件 |
+| `GET /api/repos/:id/training/exports/:exportId/download?format=` | 下载 JSONL / manifest |
 | `GET /api/settings/provider` | 当前 LLM Provider 设置 |
 | `GET /api/settings/provider/codex-status` | 本机 Codex CLI 登录状态 |
 
-## 为 Trace 与 Wiki 配置 Codex（可选）
+## 为 Trace、Wiki 与 Training 配置 Codex（可选）
 
 CodeDelta 可复用 **已有 Codex CLI 登录** —— 无需在 Web UI 粘贴 API Key。
 
@@ -287,7 +325,7 @@ codex login
 
 打开 **Trace View**，输入具体问题（文件路径、符号名、配置名更有帮助），点击 **Run trace**。
 
-确定性结果始终会出现；若已配置 Codex，模型可能润色叙述。模型输出 **非权威** —— 以证据与 Delta 验证为准。同一 Provider 也用于 **Wiki** 页面叙述与 **Ask**（Ask 必须配置 Provider；无 LLM 时 wiki 页面仍可生成结构化内容）。
+确定性结果始终会出现；若已配置 Codex，模型可能润色叙述。模型输出 **非权威** —— 以证据与 Delta 验证为准。同一 Provider 也用于 **Wiki** 页面叙述与 **Ask**（Ask 必须配置 Provider；无 LLM 时 wiki 页面仍可生成结构化内容），以及 **Training Data** 导出切片审查（必须配置 Provider）。
 
 ### Codex 故障排查
 
@@ -309,6 +347,7 @@ codex login
 | `.codedelta/registry.json` | 导入注册表 |
 | `.codedelta/snapshots/<repoId>/<hash>/<analyzerVersion>/` | 每 commit 结构快照 |
 | `.codedelta/wiki/<repoId>/<hash>/<wikiVersion>/` | 生成的 wiki（目录、页面、元数据） |
+| `.codedelta/training/<repoId>/exports/<exportId>/` | 训练数据导出产物与 manifest |
 | `.codedelta/settings.json` | Provider 设置 |
 
 快照在 compare/trace 时 **懒构建** —— 不会预索引全部历史。
@@ -349,8 +388,9 @@ packages/
   codedelta-delta-summary/
   codedelta-trace-engine/
   codedelta-wiki-engine/      # Wiki 目录/页面/Mermaid + Ask 检索
+  codedelta-training-data/    # CodingEpisode 导出 + 数据集序列化
   codedelta-provider-runtime/
-apps/web/                     # React UI（Delta、Trace、Panorama、Wiki）
+apps/web/                     # React UI（Delta、Trace、Panorama、Wiki、Training）
 apps/desktop/                 # macOS / Windows 桌面壳（Tauri 2）
 ```
 
@@ -369,15 +409,15 @@ apps/desktop/                 # macOS / Windows 桌面壳（Tauri 2）
 
 CodeDelta 提供 **桌面应用**（[`apps/desktop/`](apps/desktop/)）— Tauri 2 壳，内置 Node 22（供 CodeGraph `node:sqlite`）与 API 服务。终端用户无需单独安装 Node。
 
-**版本** 来自 `apps/desktop/src-tauri/tauri.conf.json`（当前 **0.2.1**）。macOS 与 Windows 安装包发布在同一 GitHub Release：[`codedelta-desktop-v0.2.1`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1)。桌面包含 **Delta、Trace、Panorama、Wiki**（Ask 需配置 LLM Provider）。**v0.2.0 已撤回** —— 其 macOS DMG 为手动打包路径，体积大约多 40 MB 且无功能收益；请使用 v0.2.1。
+**版本** 来自 `apps/desktop/src-tauri/tauri.conf.json`（当前 **0.2.2**）。macOS 与 Windows 安装包发布在同一 GitHub Release：[`codedelta-desktop-v0.2.2`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2)。桌面版包含 **Delta、Trace、Panorama、Wiki 与 Training Data**（Wiki Ask 与 Training 导出需配置 LLM Provider）。
 
 ### 下载
 
 | 平台 | 文件 | 说明 |
 |------|------|------|
-| **macOS**（Apple Silicon） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_aarch64.dmg` | 未签名；若被拦截请右键 → 打开 |
-| **Windows**（x64） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) → `CodeDelta_*_x64-setup.exe` | NSIS 安装包 |
-| macOS 镜像 | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **仅旧版 v0.1.0** — 无 Wiki；请用 [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.1) 获取当前版本 |
+| **macOS**（Apple Silicon） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_aarch64.dmg` | 未签名；若被拦截请右键 → 打开 |
+| **Windows**（x64） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_x64-setup.exe` | NSIS 安装包 |
+| macOS 镜像 | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **仅旧版 v0.1.0** — 无 Wiki / Training；请用 [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) 获取当前版本 |
 
 **安装（macOS）：** 打开 dmg → 将 **CodeDelta** 拖入「应用程序」。
 
@@ -443,8 +483,8 @@ npm run dev:codedelta    # API :3847，web :5173，watch provider-runtime
 npm test -- packages/codedelta-graph-diff packages/codedelta-graph-subgraph \
   packages/codedelta-impact-score packages/codedelta-server \
   packages/codedelta-snapshot-manager packages/codedelta-trace-engine \
-  packages/codedelta-wiki-engine packages/codedelta-provider-runtime \
-  __tests__/codedelta
+  packages/codedelta-wiki-engine packages/codedelta-training-data \
+  packages/codedelta-provider-runtime __tests__/codedelta
 ```
 
 环境变量：

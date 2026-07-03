@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   api,
@@ -33,29 +33,7 @@ function selectedFormats(formats: Record<TrainingExportFormat, boolean>): Traini
 }
 
 function artifactLabel(artifact: TrainingExportArtifact): string {
-  return `${artifact.format} · ${(artifact.bytes / 1024).toFixed(1)} KB`;
-}
-
-function parsePreview(jsonl: string): Array<{ id: string; instruction: string; files: string }> {
-  return jsonl
-    .split('\n')
-    .filter(Boolean)
-    .slice(0, 5)
-    .map((line, index) => {
-      try {
-        const row = JSON.parse(line) as {
-          slice?: { id?: string };
-          task?: { instruction?: string; minimal_context_files?: string[] };
-        };
-        return {
-          id: row.slice?.id ?? `row-${index + 1}`,
-          instruction: row.task?.instruction ?? 'Episode',
-          files: row.task?.minimal_context_files?.join(', ') ?? '',
-        };
-      } catch {
-        return { id: `row-${index + 1}`, instruction: 'Unparseable JSONL row', files: '' };
-      }
-    });
+  return `${(artifact.bytes / 1024).toFixed(1)} KB`;
 }
 
 function commitIndex(commits: CommitInfo[], hash: string): number {
@@ -95,8 +73,6 @@ export default function TrainingDataPage() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const previewRows = useMemo(() => parsePreview(canonicalText), [canonicalText]);
 
   const loadCommits = useCallback(async (id: string, selectedBranch: string) => {
     const list = await api.listCommits(id, selectedBranch, 100);
@@ -222,7 +198,14 @@ export default function TrainingDataPage() {
         },
       });
       setExportId(result.exportId);
-      setStatus({ state: 'generating', exportId: result.exportId, jobId: result.jobId });
+      setStatus({
+        state: 'generating',
+        exportId: result.exportId,
+        jobId: result.jobId,
+        currentStep: 'Starting export',
+        episodes: 0,
+        skipped: 0,
+      });
     } catch (err) {
       setRunning(false);
       setError(err instanceof Error ? err.message : 'Failed to start export');
@@ -244,9 +227,33 @@ export default function TrainingDataPage() {
 
   const canStart = mode === 'history' || (Boolean(base) && Boolean(head));
   const progress =
-    status?.totalIntervals && status.completedIntervals != null
+    status?.totalIntervals != null && status.completedIntervals != null
       ? `${status.completedIntervals}/${status.totalIntervals}`
       : status?.state ?? 'idle';
+  const currentStep =
+    status?.currentStep ??
+    (status?.state === 'ready'
+      ? 'Ready'
+      : status?.state === 'error'
+        ? 'Failed'
+        : running
+          ? 'Starting export'
+          : 'Idle');
+  const hasCanonicalArtifact = artifacts.some((artifact) => artifact.format === 'canonical');
+  const jsonlPreviewText =
+    canonicalText ||
+    (status?.state === 'generating'
+      ? 'Canonical JSONL will appear here once the export writes artifacts.'
+      : status?.state === 'ready' && artifacts.length === 0
+        ? 'Loading export artifacts...'
+      : status?.state === 'ready' && artifacts.length > 0 && !hasCanonicalArtifact
+        ? 'Canonical JSONL was not selected for this export.'
+        : status?.state === 'ready'
+          ? 'No canonical JSONL rows generated.'
+          : 'Start an export to preview canonical JSONL here.');
+  const jsonlPreviewClassName = canonicalText
+    ? 'training-jsonl-box'
+    : 'training-jsonl-box training-jsonl-box--empty';
   const beforeOptions = olderThan(commits, head);
   const afterOptions = newerThan(commits, base);
 
@@ -353,9 +360,17 @@ export default function TrainingDataPage() {
             </Badge>
           </p>
           <dl className="meta-grid">
+            <dt>Step</dt>
+            <dd className="training-status-step">{currentStep}</dd>
+            {status?.currentCommit && (
+              <>
+                <dt>Commit</dt>
+                <dd><Mono>{status.currentCommit}</Mono></dd>
+              </>
+            )}
             <dt>Progress</dt>
             <dd>{progress}</dd>
-            <dt>Episodes</dt>
+            <dt>Slices</dt>
             <dd>{status?.episodes ?? 0}</dd>
             <dt>Skipped</dt>
             <dd>{status?.skipped ?? 0}</dd>
@@ -393,32 +408,13 @@ export default function TrainingDataPage() {
               Copy canonical JSONL
             </Button>
           )}
+
+          <section className="training-jsonl-preview">
+            <h3>JSONL Preview</h3>
+            <pre className={jsonlPreviewClassName}>{jsonlPreviewText}</pre>
+          </section>
         </aside>
       </div>
-
-      {previewRows.length > 0 && (
-        <Card>
-          <CardHeader title="Preview" />
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Slice</th>
-                <th>Instruction</th>
-                <th>Context</th>
-              </tr>
-            </thead>
-            <tbody>
-              {previewRows.map((row) => (
-                <tr key={row.id}>
-                  <td><Mono>{row.id}</Mono></td>
-                  <td>{row.instruction}</td>
-                  <td>{row.files}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
     </div>
   );
 }

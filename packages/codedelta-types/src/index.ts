@@ -424,6 +424,7 @@ export interface TrainingExportStatus {
   jobId?: string;
   totalIntervals?: number;
   completedIntervals?: number;
+  currentStep?: string;
   currentCommit?: string;
   episodes?: number;
   skipped?: number;
