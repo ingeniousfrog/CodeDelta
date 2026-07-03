@@ -164,6 +164,49 @@ export interface ImportRepoRequest {
   input: string;
 }
 
+// --- Training Data Export ---
+
+export type TrainingExportFormat = 'canonical' | 'alpaca' | 'sharegpt' | 'dpo' | 'rl';
+
+export type TrainingExportMode = 'range' | 'history';
+
+export interface TrainingFilterOptions {
+  maxChangedFiles: number;
+  maxDiffBytes: number;
+  maxUnrelatedModules: number;
+  includeMergeCommits: boolean;
+  includeDocsOnly: boolean;
+}
+
+export interface TrainingExportRequest {
+  mode: TrainingExportMode;
+  branch?: string;
+  base?: string;
+  head?: string;
+  formats?: TrainingExportFormat[];
+  filters?: Partial<TrainingFilterOptions>;
+}
+
+export interface TrainingExportArtifact {
+  format: TrainingExportFormat | 'manifest';
+  path: string;
+  bytes: number;
+}
+
+export interface TrainingExportStatus {
+  state: 'absent' | 'generating' | 'ready' | 'error';
+  exportId?: string;
+  jobId?: string;
+  totalIntervals?: number;
+  completedIntervals?: number;
+  currentCommit?: string;
+  episodes?: number;
+  skipped?: number;
+  artifacts?: TrainingExportArtifact[];
+  error?: string;
+  generatedAt?: string;
+}
+
 export type PanoramaDeltaStatus = 'added' | 'removed' | 'modified' | 'unchanged';
 
 export interface PanoramaNode {

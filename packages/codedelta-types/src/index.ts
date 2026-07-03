@@ -284,6 +284,154 @@ export interface ImportRepoRequest {
   input: string;
 }
 
+// ---------------------------------------------------------------------------
+// Training data export (commit-to-CodingEpisode)
+// ---------------------------------------------------------------------------
+
+export type TrainingExportFormat = 'canonical' | 'alpaca' | 'sharegpt' | 'dpo' | 'rl';
+
+export type TrainingExportMode = 'range' | 'history';
+
+export type TrainingSkipReason =
+  | 'initial_commit'
+  | 'merge_commit'
+  | 'docs_only'
+  | 'format_only'
+  | 'rename_only'
+  | 'lockfile_only'
+  | 'generated_or_vendor_only'
+  | 'huge_diff'
+  | 'too_many_changed_files'
+  | 'too_many_unrelated_modules'
+  | 'unclear_intent'
+  | 'provider_unavailable'
+  | 'compare_failed'
+  | 'model_invalid'
+  | 'no_trainable_slices';
+
+export interface TrainingFilterOptions {
+  maxChangedFiles: number;
+  maxDiffBytes: number;
+  maxUnrelatedModules: number;
+  includeMergeCommits: boolean;
+  includeDocsOnly: boolean;
+}
+
+export interface TrainingExportRequest {
+  mode: TrainingExportMode;
+  branch?: string;
+  base?: string;
+  head?: string;
+  formats?: TrainingExportFormat[];
+  filters?: Partial<TrainingFilterOptions>;
+}
+
+export interface TrainingDiffHunk extends FileDiffHunk {
+  id: string;
+  file: string;
+}
+
+export interface TrainingSliceFile {
+  path: string;
+  hunks: TrainingDiffHunk[];
+}
+
+export interface TrainingTask {
+  instruction: string;
+  constraints: string[];
+  before_summary: string;
+  after_summary: string;
+  minimal_context_files: string[];
+  plan: string[];
+  verification_command_candidates: string[];
+}
+
+export interface TrainingSlice {
+  id: string;
+  intent: string;
+  trainable: boolean;
+  trainability_reason: string;
+  noise: string[];
+  files: TrainingSliceFile[];
+}
+
+export interface CodingEpisode {
+  schema_version: 'codedelta.coding_episode.v1';
+  repo: {
+    id: string;
+    name: string;
+    language_hints: string[];
+  };
+  range: {
+    base: string;
+    head: string;
+    commit: string;
+    parent: string;
+  };
+  slice: TrainingSlice;
+  task: TrainingTask;
+  solution: {
+    patch: string;
+    patch_applies: boolean;
+    changed_files: string[];
+  };
+  quality: {
+    confidence: number;
+    requires_human_review: boolean;
+    warnings: string[];
+  };
+  provenance: {
+    source: 'git_commit';
+    review_provider: string;
+    generated_at: string;
+  };
+}
+
+export interface TrainingSkippedCommit {
+  commitHash: string;
+  message: string;
+  skip_reason: TrainingSkipReason;
+}
+
+export interface TrainingExportArtifact {
+  format: TrainingExportFormat | 'manifest';
+  path: string;
+  bytes: number;
+}
+
+export interface TrainingExportManifest {
+  exportId: string;
+  repoId: string;
+  request: TrainingExportRequest;
+  provider: {
+    type: string;
+    used: boolean;
+  };
+  counts: {
+    intervals: number;
+    episodes: number;
+    skipped: number;
+  };
+  skipped: TrainingSkippedCommit[];
+  warnings: string[];
+  artifacts: TrainingExportArtifact[];
+  generatedAt: string;
+}
+
+export interface TrainingExportStatus {
+  state: 'absent' | 'generating' | 'ready' | 'error';
+  exportId?: string;
+  jobId?: string;
+  totalIntervals?: number;
+  completedIntervals?: number;
+  currentCommit?: string;
+  episodes?: number;
+  skipped?: number;
+  artifacts?: TrainingExportArtifact[];
+  error?: string;
+  generatedAt?: string;
+}
+
 export type PanoramaDeltaStatus = 'added' | 'removed' | 'modified' | 'unchanged';
 
 export type PanoramaNodeRole = 'entry' | 'bridge' | 'leaf';

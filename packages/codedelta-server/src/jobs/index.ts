@@ -35,6 +35,13 @@ export class JobStore {
     return this.jobs.get(id);
   }
 
+  /** Latest job for a dedupe key, including recently finished jobs. */
+  getByKey(key: string): Job | undefined {
+    this.evictFinished();
+    const matches = Array.from(this.jobs.values()).filter((job) => job.key === key);
+    return matches.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  }
+
   /** Active (queued/running) job for a dedupe key, if any. */
   getActiveByKey(key: string): Job | undefined {
     this.evictFinished();

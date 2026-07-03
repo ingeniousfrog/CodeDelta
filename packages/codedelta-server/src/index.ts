@@ -8,6 +8,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { JobStore } from './jobs';
 import { createReposRouter } from './routes/repos';
 import { createSettingsRouter } from './routes/settings';
+import { createTrainingRouter } from './routes/training';
 import { createWikiRouter } from './routes/wiki';
 import { RepoRegistry, SettingsStore } from './store/repo-registry';
 
@@ -93,6 +94,7 @@ export function createApp(options: CreateAppOptions = {}) {
   });
 
   app.use('/api/repos/:id/wiki', createWikiRouter(registry, settings, jobs));
+  app.use('/api/repos/:id/training', createTrainingRouter(registry, settings, jobs));
   app.use('/api/repos', createReposRouter(registry, settings));
   app.use('/api/settings', createSettingsRouter(settings));
 

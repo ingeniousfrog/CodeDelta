@@ -854,3 +854,31 @@
   font: inherit;
   font-size: 0.88rem;
 }
+
+.training-mode-row,
+.training-format-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.training-range-grid,
+.training-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text);
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.training-download-link {
+  margin-left: 0.75rem;
+}

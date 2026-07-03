@@ -15,6 +15,11 @@ import type {
   RepoRef,
   TraceAnswer,
   TraceEvidenceItem,
+  TrainingExportArtifact,
+  TrainingExportFormat,
+  TrainingExportMode,
+  TrainingExportRequest,
+  TrainingExportStatus,
   WikiAskAnswer,
   WikiPageContent,
   WikiStatus,
@@ -31,6 +36,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);
   }
   return res.json() as Promise<T>;
+}
+
+async function requestText(path: string, init?: RequestInit): Promise<string> {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    ...init,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `Request failed: ${res.status}`);
+  }
+  return res.text();
 }
 
 export const api = {
@@ -153,6 +170,30 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  startTrainingExport: (id: string, body: TrainingExportRequest) =>
+    request<{ exportId: string; jobId: string }>(`/api/repos/${id}/training/export`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getTrainingExportStatus: (id: string, exportId: string) =>
+    request<TrainingExportStatus>(
+      `/api/repos/${id}/training/exports/${encodeURIComponent(exportId)}/status`,
+    ),
+
+  listTrainingExportArtifacts: (id: string, exportId: string) =>
+    request<TrainingExportArtifact[]>(
+      `/api/repos/${id}/training/exports/${encodeURIComponent(exportId)}/artifacts`,
+    ),
+
+  trainingExportDownloadUrl: (id: string, exportId: string, format: TrainingExportFormat) =>
+    `/api/repos/${id}/training/exports/${encodeURIComponent(exportId)}/download?format=${encodeURIComponent(format)}`,
+
+  downloadTrainingExport: (id: string, exportId: string, format: TrainingExportFormat) =>
+    requestText(
+      `/api/repos/${id}/training/exports/${encodeURIComponent(exportId)}/download?format=${encodeURIComponent(format)}`,
+    ),
 };
 
 export type {
@@ -166,6 +207,11 @@ export type {
   ImpactSummary,
   TraceAnswer,
   TraceEvidenceItem,
+  TrainingExportArtifact,
+  TrainingExportFormat,
+  TrainingExportMode,
+  TrainingExportRequest,
+  TrainingExportStatus,
   CodeNode,
   ModelProviderConfig,
   ProviderKind,

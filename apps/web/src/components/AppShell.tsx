@@ -72,6 +72,12 @@ function ShellInner() {
                 >
                   Wiki
                 </NavLink>
+                <NavLink
+                  to={repoNavPath(repoId, 'training')}
+                  className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+                >
+                  Training Data
+                </NavLink>
               </>
             ) : (
               <>
@@ -86,6 +92,9 @@ function ShellInner() {
                 </span>
                 <span className="nav-link disabled" title="Import a repository first">
                   Wiki
+                </span>
+                <span className="nav-link disabled" title="Import a repository first">
+                  Training Data
                 </span>
               </>
             )}

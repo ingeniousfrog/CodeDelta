@@ -19,6 +19,7 @@
     "@codedelta/provider-runtime": "*",
     "@codedelta/repo-manager": "*",
     "@codedelta/snapshot-manager": "*",
+    "@codedelta/training-data": "*",
     "@codedelta/trace-engine": "*",
     "@codedelta/types": "*",
     "@codedelta/wiki-engine": "*",

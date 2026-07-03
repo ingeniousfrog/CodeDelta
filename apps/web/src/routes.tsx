@@ -9,6 +9,7 @@ const DeltaViewPage = lazy(() => import('./pages/DeltaViewPage'));
 const TraceViewPage = lazy(() => import('./pages/TraceViewPage'));
 const PanoramaPage = lazy(() => import('./pages/PanoramaPage'));
 const WikiPage = lazy(() => import('./pages/WikiPage'));
+const TrainingDataPage = lazy(() => import('./pages/TrainingDataPage'));
 const ProviderSettingsPage = lazy(() => import('./pages/ProviderSettingsPage'));
 
 function PageFallback() {
@@ -58,6 +59,14 @@ export function AppRoutes() {
           element={
             <Suspense fallback={<PageFallback />}>
               <WikiPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="repos/:repoId/training"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <TrainingDataPage />
             </Suspense>
           }
         />
