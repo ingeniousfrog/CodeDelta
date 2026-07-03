@@ -258,39 +258,40 @@ npm run dev:codedelta
 
 ## 界面导览
 
-以下截图为 **桌面版 v0.2.2**（Analysis 导航含 Delta、Trace、Panorama、Wiki、Training Data）。
+以下截图为 **桌面版 v0.2.2**（Analysis 导航含 Delta、Trace、Panorama、Wiki、Training Data）。展示宽度已限制，便于阅读；点击图片可查看原图。
 
 ### 1) 导入仓库
 
-![Import Repository](docs/images/import-view.png)
+<p align="center"><img src="docs/images/import-view.png" width="700" alt="Import Repository" /></p>
 
 ### 2) Commit 时间线与导航
 
 浏览分支历史；导入仓库后，侧栏可进入各分析视图。
 
-![Commit 时间线与 Analysis 导航](docs/images/commit-timeline-view.png)
+<p align="center"><img src="docs/images/commit-timeline-view.png" width="700" alt="Commit 时间线与 Analysis 导航" /></p>
 
 ### 3) Delta View（结构对比）
 
-![Delta View](docs/images/delta-view-overview.png)
+<p align="center"><img src="docs/images/delta-view-overview.png" width="700" alt="Delta View" /></p>
 
 ### 4) Trace View（证据优先的来源分析）
 
-![Trace View](docs/images/trace-view-overview.png)
+<p align="center"><img src="docs/images/trace-view-overview.png" width="700" alt="Trace View" /></p>
 
 ### 5) Panorama（调用流图）
 
-![Panorama 调用流图](docs/images/panorama-view.png)
+<p align="center"><img src="docs/images/panorama-view.png" width="700" alt="Panorama 调用流图" /></p>
 
 ### 6) Wiki（基于结构图的文档 + Ask）
 
-![Wiki 页面与符号引用](docs/images/wiki-view.png)
+<p align="center"><img src="docs/images/wiki-view.png" width="700" alt="Wiki 页面与符号引用" /></p>
 
 ### 7) Training Data（导出 SFT / DPO / RL 数据集）
 
-![Training Data 导出 — 区间、过滤器、格式与 JSONL 预览](docs/images/training-data-view.png)
+<p align="center"><img src="docs/images/training-data-view.png" width="700" alt="Training Data 导出" /></p>
 
-文件级弹窗示例：[`docs/images/delta-file-diff-modal.png`](docs/images/delta-file-diff-modal.png)
+文件级弹窗示例：
+<p align="center"><img src="docs/images/delta-file-diff-modal.png" width="700" alt="Delta 文件 diff 弹窗" /></p>
 
 API：[http://localhost:3847](http://localhost:3847)
 
