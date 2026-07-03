@@ -58,6 +58,20 @@ function parsePreview(jsonl: string): Array<{ id: string; instruction: string; f
     });
 }
 
+function commitIndex(commits: CommitInfo[], hash: string): number {
+  return commits.findIndex((commit) => commit.hash === hash);
+}
+
+function newerThan(commits: CommitInfo[], hash: string): CommitInfo[] {
+  const index = commitIndex(commits, hash);
+  return index < 0 ? commits : commits.filter((_, i) => i < index);
+}
+
+function olderThan(commits: CommitInfo[], hash: string): CommitInfo[] {
+  const index = commitIndex(commits, hash);
+  return index < 0 ? commits : commits.filter((_, i) => i > index);
+}
+
 export default function TrainingDataPage() {
   const { repoId } = useParams<{ repoId: string }>();
   const [repo, setRepo] = useState<RepoRef | null>(null);
@@ -88,8 +102,26 @@ export default function TrainingDataPage() {
     const list = await api.listCommits(id, selectedBranch, 100);
     setCommits(list);
     setHead((current) => current || list[0]?.hash || '');
-    setBase((current) => current || list[1]?.hash || list[0]?.parents[0] || '');
+    setBase((current) => current || list[1]?.hash || '');
   }, []);
+
+  function setBeforeCommit(hash: string) {
+    setBase(hash);
+    const beforeIndex = commitIndex(commits, hash);
+    const afterIndex = commitIndex(commits, head);
+    if (beforeIndex >= 0 && afterIndex >= beforeIndex) {
+      setHead(commits[beforeIndex - 1]?.hash ?? '');
+    }
+  }
+
+  function setAfterCommit(hash: string) {
+    setHead(hash);
+    const afterIndex = commitIndex(commits, hash);
+    const beforeIndex = commitIndex(commits, base);
+    if (afterIndex >= 0 && beforeIndex <= afterIndex) {
+      setBase(commits[afterIndex + 1]?.hash ?? '');
+    }
+  }
 
   useEffect(() => {
     if (!repoId) return;
@@ -215,6 +247,8 @@ export default function TrainingDataPage() {
     status?.totalIntervals && status.completedIntervals != null
       ? `${status.completedIntervals}/${status.totalIntervals}`
       : status?.state ?? 'idle';
+  const beforeOptions = olderThan(commits, head);
+  const afterOptions = newerThan(commits, base);
 
   return (
     <div className="page">
@@ -246,18 +280,18 @@ export default function TrainingDataPage() {
 
             {mode === 'range' && (
               <div className="training-range-grid">
-                <FormField label="Base">
-                  <Select value={base} onChange={(e) => setBase(e.target.value)}>
-                    {commits.map((commit) => (
+                <FormField label="Before">
+                  <Select value={base} onChange={(e) => setBeforeCommit(e.target.value)}>
+                    {beforeOptions.map((commit) => (
                       <option key={commit.hash} value={commit.hash}>
                         {commit.shortHash} · {commit.message}
                       </option>
                     ))}
                   </Select>
                 </FormField>
-                <FormField label="Head">
-                  <Select value={head} onChange={(e) => setHead(e.target.value)}>
-                    {commits.map((commit) => (
+                <FormField label="After">
+                  <Select value={head} onChange={(e) => setAfterCommit(e.target.value)}>
+                    {afterOptions.map((commit) => (
                       <option key={commit.hash} value={commit.hash}>
                         {commit.shortHash} · {commit.message}
                       </option>

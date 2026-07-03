@@ -169,6 +169,14 @@ function slicePatch(diff: string): string {
   return diff;
 }
 
+function providerFailureMessage(err: unknown, providerId: string): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes('HTTP 429') || message.includes('usage_limit_reached')) {
+    return `${providerId} quota or usage limit reached. Wait for the provider reset, or switch provider in Provider Settings.`;
+  }
+  return message;
+}
+
 function checkPatchApplies(clonePath: string, base: string, patch: string): boolean {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'codedelta-patch-check-'));
   try {
@@ -310,26 +318,31 @@ async function analyzeInterval(input: {
     throw err;
   }
 
-  const modelText = await input.provider.complete({
-    system: buildReviewSystemPrompt(),
-    messages: [
-      {
-        role: 'user',
-        content: buildReviewUserPayload({
-          commit: {
-            hash: input.interval.commit.hash,
-            message: input.interval.commit.message,
-            parent: input.interval.parent,
-          },
-          changedFiles: changedFiles.map((f) => f.path),
-          hunks,
-          diff,
-          graphSummary,
-        }),
-      },
-    ],
-    temperature: 0,
-  });
+  let modelText: string;
+  try {
+    modelText = await input.provider.complete({
+      system: buildReviewSystemPrompt(),
+      messages: [
+        {
+          role: 'user',
+          content: buildReviewUserPayload({
+            commit: {
+              hash: input.interval.commit.hash,
+              message: input.interval.commit.message,
+              parent: input.interval.parent,
+            },
+            changedFiles: changedFiles.map((f) => f.path),
+            hunks,
+            diff,
+            graphSummary,
+          }),
+        },
+      ],
+      temperature: 0,
+    });
+  } catch (err) {
+    throw new TrainingExportError(providerFailureMessage(err, input.provider.id), 502);
+  }
   const json = extractJsonObject(modelText);
   const validation = validateReviewOutput(json, {
     allowedFiles: changedFiles.map((f) => f.path),
