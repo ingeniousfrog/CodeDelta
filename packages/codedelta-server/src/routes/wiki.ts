@@ -32,12 +32,14 @@ export function createWikiRouter(
   router.post('/generate', (req: Request, res: Response) => {
     const repoId = param((req.params as Record<string, string>).id);
     const commit = (req.query.commit as string | undefined)?.trim();
+    const locale = (req.query.locale as string | undefined)?.trim()
+      ?? (typeof req.body?.locale === 'string' ? req.body.locale : undefined);
     if (!commit) {
       res.status(400).json({ error: 'Query parameter commit is required' });
       return;
     }
     try {
-      const result = startWikiGeneration(registry, settings, jobs, repoId, commit);
+      const result = startWikiGeneration(registry, settings, jobs, repoId, commit, locale);
       if (result.alreadyReady) {
         res.json({ status: 'ready' });
         return;
@@ -51,12 +53,13 @@ export function createWikiRouter(
   router.get('/status', (req: Request, res: Response) => {
     const repoId = param((req.params as Record<string, string>).id);
     const commit = (req.query.commit as string | undefined)?.trim();
+    const locale = (req.query.locale as string | undefined)?.trim();
     if (!commit) {
       res.status(400).json({ error: 'Query parameter commit is required' });
       return;
     }
     try {
-      res.json(getWikiStatus(registry, jobs, repoId, commit));
+      res.json(getWikiStatus(registry, jobs, repoId, commit, locale));
     } catch (err) {
       handleError(res, err, 'Wiki status failed');
     }
@@ -65,12 +68,13 @@ export function createWikiRouter(
   router.get('/toc', (req: Request, res: Response) => {
     const repoId = param((req.params as Record<string, string>).id);
     const commit = (req.query.commit as string | undefined)?.trim();
+    const locale = (req.query.locale as string | undefined)?.trim();
     if (!commit) {
       res.status(400).json({ error: 'Query parameter commit is required' });
       return;
     }
     try {
-      res.json(getWikiToc(registry, repoId, commit));
+      res.json(getWikiToc(registry, repoId, commit, locale));
     } catch (err) {
       handleError(res, err, 'Wiki TOC failed');
     }
@@ -80,12 +84,13 @@ export function createWikiRouter(
     const repoId = param((req.params as Record<string, string>).id);
     const commit = (req.query.commit as string | undefined)?.trim();
     const section = (req.query.section as string | undefined)?.trim();
+    const locale = (req.query.locale as string | undefined)?.trim();
     if (!commit || !section) {
       res.status(400).json({ error: 'Query parameters commit and section are required' });
       return;
     }
     try {
-      res.json(getWikiPage(registry, repoId, commit, section));
+      res.json(getWikiPage(registry, repoId, commit, section, locale));
     } catch (err) {
       handleError(res, err, 'Wiki page failed');
     }

@@ -38,7 +38,11 @@ function releaseNotes() {
   return [
     `CodeDelta Desktop v${version}`,
     '',
-    'Bundled: web UI (Delta, Trace, Panorama, Wiki), API server, CodeGraph runtime, and Node 22 — no separate Node install required.',
+    'Bundled: web UI (Delta, Trace, Panorama, Wiki, Training Data), API server, CodeGraph runtime, and Node 22 — no separate Node install required.',
+    '',
+    '**Highlights in 0.2.3**',
+    '- **EN / 简体中文** UI: Settings → General language capsule (default English)',
+    '- Wiki TOC, deterministic pages, LLM narration, and Ask follow the selected language (separate cache per locale)',
     '',
     '**Downloads**',
     '- **macOS** (Apple Silicon arm64): `CodeDelta_*_aarch64.dmg` — unsigned; if blocked, right-click → Open',

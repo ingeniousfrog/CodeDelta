@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   api,
@@ -19,28 +20,30 @@ interface ChatMessage {
   providerUsed?: boolean;
 }
 
-function chatStorageKey(repoId: string, commit: string): string {
-  return `codedelta-wiki-chat-${repoId}-${commit}`;
+function chatStorageKey(repoId: string, commit: string, locale: string): string {
+  return `codedelta-wiki-chat-${repoId}-${commit}-${locale}`;
 }
 
-function loadChat(repoId: string, commit: string): ChatMessage[] {
+function loadChat(repoId: string, commit: string, locale: string): ChatMessage[] {
   try {
-    const raw = sessionStorage.getItem(chatStorageKey(repoId, commit));
+    const raw = sessionStorage.getItem(chatStorageKey(repoId, commit, locale));
     return raw ? (JSON.parse(raw) as ChatMessage[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveChat(repoId: string, commit: string, messages: ChatMessage[]): void {
+function saveChat(repoId: string, commit: string, locale: string, messages: ChatMessage[]): void {
   try {
-    sessionStorage.setItem(chatStorageKey(repoId, commit), JSON.stringify(messages.slice(-30)));
+    sessionStorage.setItem(chatStorageKey(repoId, commit, locale), JSON.stringify(messages.slice(-30)));
   } catch {
     // sessionStorage full/unavailable — chat just won't persist.
   }
 }
 
 export default function WikiPage() {
+  const { t, i18n } = useTranslation(['wiki', 'common']);
+  const locale = i18n.language === 'zh-Hans' ? 'zh-Hans' : 'en';
   const { repoId } = useParams<{ repoId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -71,7 +74,9 @@ export default function WikiPage() {
         setCommits(list);
         setCommit((prev) => prev || (searchParams.get('commit') ?? list[0]?.hash ?? ''));
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load repository');
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : t('common:errors.loadRepoFailed'));
+        }
       }
     })();
     return () => {
@@ -93,18 +98,18 @@ export default function WikiPage() {
   const refreshStatus = useCallback(async () => {
     if (!repoId || !commit) return;
     try {
-      const s = await api.getWikiStatus(repoId, commit);
+      const s = await api.getWikiStatus(repoId, commit, locale);
       setStatus(s);
       if (s.state === 'ready') {
-        const t = await api.getWikiToc(repoId, commit);
-        setToc(t);
+        const tocData = await api.getWikiToc(repoId, commit, locale);
+        setToc(tocData);
       } else {
         setToc(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load wiki status');
+      setError(err instanceof Error ? err.message : t('loadStatusFailed'));
     }
-  }, [repoId, commit]);
+  }, [repoId, commit, locale, t]);
 
   useEffect(() => {
     setStatus(null);
@@ -112,10 +117,10 @@ export default function WikiPage() {
     setPage(null);
     setError(null);
     if (repoId && commit) {
-      setMessages(loadChat(repoId, commit));
+      setMessages(loadChat(repoId, commit, locale));
       refreshStatus();
     }
-  }, [repoId, commit, refreshStatus]);
+  }, [repoId, commit, locale, refreshStatus]);
 
   // Poll while generating.
   useEffect(() => {
@@ -145,12 +150,12 @@ export default function WikiPage() {
     let cancelled = false;
     setPageLoading(true);
     api
-      .getWikiPage(repoId, commit, section.id)
+      .getWikiPage(repoId, commit, section.id, locale)
       .then((p) => {
         if (!cancelled) setPage(p);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load wiki page');
+        if (!cancelled) setError(err instanceof Error ? err.message : t('loadPageFailed'));
       })
       .finally(() => {
         if (!cancelled) setPageLoading(false);
@@ -158,18 +163,18 @@ export default function WikiPage() {
     return () => {
       cancelled = true;
     };
-  }, [repoId, commit, toc, activeSection]);
+  }, [repoId, commit, toc, activeSection, locale, t]);
 
   const handleGenerate = useCallback(async () => {
     if (!repoId || !commit) return;
     setError(null);
     try {
-      await api.generateWiki(repoId, commit);
+      await api.generateWiki(repoId, commit, locale);
       await refreshStatus();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start wiki generation');
+      setError(err instanceof Error ? err.message : t('generateFailed'));
     }
-  }, [repoId, commit, refreshStatus]);
+  }, [repoId, commit, locale, refreshStatus, t]);
 
   const handleAsk = useCallback(async () => {
     if (!repoId || !commit || !question.trim() || asking) return;
@@ -182,7 +187,7 @@ export default function WikiPage() {
       const history = withUser
         .slice(-7, -1)
         .map((m) => ({ role: m.role, content: m.content }));
-      const result = await api.askWiki(repoId, { commit, question: q, history });
+      const result = await api.askWiki(repoId, { commit, question: q, history, locale });
       const withAnswer: ChatMessage[] = [
         ...withUser,
         {
@@ -194,18 +199,19 @@ export default function WikiPage() {
         },
       ];
       setMessages(withAnswer);
-      saveChat(repoId, commit, withAnswer);
+      saveChat(repoId, commit, locale, withAnswer);
     } catch (err) {
+      const message = err instanceof Error ? err.message : t('unknownError');
       const withError: ChatMessage[] = [
         ...withUser,
-        { role: 'assistant', content: `Ask failed: ${err instanceof Error ? err.message : 'unknown error'}` },
+        { role: 'assistant', content: t('askFailed', { message }) },
       ];
       setMessages(withError);
-      saveChat(repoId, commit, withError);
+      saveChat(repoId, commit, locale, withError);
     } finally {
       setAsking(false);
     }
-  }, [repoId, commit, question, asking, messages]);
+  }, [repoId, commit, question, asking, messages, locale, t]);
 
   const selectSection = useCallback(
     (sectionId: string) => {
@@ -225,16 +231,13 @@ export default function WikiPage() {
 
   return (
     <div className="page">
-      <PageHeader
-        title="Wiki"
-        description="Graph-grounded documentation for this repository at a specific commit. Diagrams come from real call/import edges; answers cite symbols you can verify."
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       <Card>
         <div className="wiki-toolbar">
-          <FormField label="Commit">
+          <FormField label={t('commit')}>
             <Select value={commit} onChange={(e) => setCommit(e.target.value)}>
-              <option value="">Select commit…</option>
+              <option value="">{t('selectCommit')}</option>
               {commits.map((c) => (
                 <option key={c.hash} value={c.hash}>
                   {c.shortHash} — {c.message.slice(0, 60)}
@@ -244,26 +247,33 @@ export default function WikiPage() {
           </FormField>
           {!ready && (
             <Button variant="primary" onClick={handleGenerate} disabled={!commit || generating}>
-              {generating ? 'Generating…' : 'Generate Wiki'}
+              {generating ? t('generating') : t('generate')}
             </Button>
           )}
           {ready && (
             <p className="hint wiki-meta-hint">
-              Generated {status?.generatedAt ? new Date(status.generatedAt).toLocaleString() : ''} ·{' '}
-              {status?.llmUsed ? 'with LLM narration' : 'structural only (no LLM configured)'}
+              {t('generatedAt', {
+                when: status?.generatedAt ? new Date(status.generatedAt).toLocaleString() : '',
+              })}
+              {status?.llmUsed ? t('withLlm') : t('structuralOnly')}
             </p>
           )}
         </div>
         {generating && (
           <p className="hint">
-            Building wiki: {status?.completedSections ?? 0}/{status?.totalSections ?? '…'} sections
-            {status?.currentSection ? ` — ${status.currentSection}` : ''}. First run also builds the
-            commit snapshot, which can take a while on large repositories.
+            {t('building', {
+              done: status?.completedSections ?? 0,
+              total: status?.totalSections ?? '…',
+              current: status?.currentSection ? ` — ${status.currentSection}` : '',
+            })}
           </p>
         )}
         {selectedCommit && (
           <p className="hint">
-            Snapshot <strong>{selectedCommit.shortHash}</strong> · {selectedCommit.message.slice(0, 80)}
+            {t('snapshot', {
+              hash: selectedCommit.shortHash,
+              message: selectedCommit.message.slice(0, 80),
+            })}
           </p>
         )}
       </Card>
@@ -272,10 +282,11 @@ export default function WikiPage() {
 
       {!ready && !generating && !error && (
         <p className="hint">
-          No wiki for this commit yet. Generate one to get an overview, architecture diagrams from the
-          structural graph, and per-module pages. Without a configured provider you still get the
-          structural wiki; configure one in <Link to="/settings/provider">Provider Settings</Link> for
-          narrated pages and Ask answers.
+          {t('emptyHintBefore')}{' '}
+          <Link to="/settings/provider">{t('providerSettings')}</Link>{' '}
+          {t('emptyHintAfter')}
+          {' '}
+          {t('localeHint')}
         </p>
       )}
 
@@ -283,7 +294,7 @@ export default function WikiPage() {
         <div className="wiki-layout">
           <aside className="wiki-toc">
             <Card>
-              <h3>Contents</h3>
+              <h3>{t('contents')}</h3>
               <ul className="wiki-toc-list">
                 {toc.sections.map((s) => (
                   <li key={s.id}>
@@ -303,11 +314,11 @@ export default function WikiPage() {
 
           <section className="wiki-content">
             <Card>
-              {pageLoading && <p className="hint">Loading page…</p>}
+              {pageLoading && <p className="hint">{t('loadingPage')}</p>}
               {!pageLoading && page && <WikiMarkdown markdown={page.markdown} />}
               {!pageLoading && page && page.citations.length > 0 && (
                 <details className="wiki-citations">
-                  <summary>Symbols referenced on this page ({page.citations.length})</summary>
+                  <summary>{t('symbolsReferenced', { count: page.citations.length })}</summary>
                   <ul>
                     {page.citations.map((c) => (
                       <li key={c.id}>
@@ -334,13 +345,13 @@ export default function WikiPage() {
 
           <aside className="wiki-ask">
             <Card>
-              <h3>Ask this repo</h3>
+              <h3>{t('askTitle')}</h3>
               <div className="wiki-chat">
                 {messages.length === 0 && (
                   <p className="hint">
-                    Ask in natural language — answers use your configured LLM provider, grounded in
-                    the structural graph (symbols, call paths, README). Configure one in{' '}
-                    <Link to="/settings/provider">Provider Settings</Link> if Ask is disabled.
+                    {t('askEmptyBefore')}{' '}
+                    <Link to="/settings/provider">{t('providerSettings')}</Link>{' '}
+                    {t('askEmptyAfter')}
                   </p>
                 )}
                 {messages.map((m, i) => (
@@ -364,11 +375,11 @@ export default function WikiPage() {
                       </ul>
                     )}
                     {m.role === 'assistant' && m.confidence && (
-                      <p className="hint">confidence: {m.confidence}</p>
+                      <p className="hint">{t('confidence', { level: m.confidence })}</p>
                     )}
                   </div>
                 ))}
-                {asking && <p className="hint">Thinking…</p>}
+                {asking && <p className="hint">{t('thinking')}</p>}
               </div>
               <div className="wiki-ask-input">
                 <textarea
@@ -380,11 +391,11 @@ export default function WikiPage() {
                       handleAsk();
                     }
                   }}
-                  placeholder="e.g. How does compare build snapshots?"
+                  placeholder={t('askPlaceholder')}
                   rows={3}
                 />
                 <Button variant="primary" onClick={handleAsk} disabled={asking || !question.trim()}>
-                  {asking ? 'Asking…' : 'Ask'}
+                  {asking ? t('asking') : t('ask')}
                 </Button>
               </div>
             </Card>

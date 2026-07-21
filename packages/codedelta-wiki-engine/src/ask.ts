@@ -1,5 +1,6 @@
 import type { CodeGraphSnapshot, CodeNode, WikiCitation, WikiEvidenceItem } from '@codedelta/types';
 import { detectEntryPoints } from '@codedelta/graph-subgraph';
+import { DEFAULT_WIKI_LOCALE, wikiCopy, type WikiLocale } from './locale';
 import { evidenceIdForSymbol, type ReadSource } from './page';
 import { isDocumentableSymbol } from './toc';
 
@@ -62,6 +63,7 @@ export interface AskRetrievalOptions {
   maxCallPaths?: number;
   maxSnippets?: number;
   maxSnippetLines?: number;
+  locale?: WikiLocale;
 }
 
 export interface AskRetrievalResult {
@@ -171,6 +173,7 @@ export function bootstrapAskEvidence(
   options: AskRetrievalOptions = {},
 ): AskRetrievalResult {
   const maxSymbols = options.maxSymbols ?? 8;
+  const copy = wikiCopy(options.locale ?? DEFAULT_WIKI_LOCALE);
   const nodeById = new Map(snapshot.nodes.map((n) => [n.id, n]));
   const entryIds = detectEntryPoints(snapshot, { limit: maxSymbols });
   const matchedNodes = entryIds
@@ -201,12 +204,12 @@ export function bootstrapAskEvidence(
     {
       id: 'ctx-repo',
       kind: 'source',
-      title: 'Repository overview (no direct symbol match for this question)',
+      title: copy.askOverviewTitle,
       detail: [
         `Commit graph: ${snapshot.files.length} files, ${snapshot.nodeCount} indexed symbols.`,
         topAreas ? `Top-level areas: ${topAreas}.` : '',
         readme ? `README excerpt:\n${readme}` : '',
-        'Use the entry-point symbols below as starting points for vague or high-level questions.',
+        copy.askOverviewDetail,
       ]
         .filter(Boolean)
         .join('\n\n'),
@@ -243,26 +246,27 @@ export function prepareAskRetrieval(
 export function deterministicAskAnswer(
   question: string,
   result: AskRetrievalResult,
+  locale: WikiLocale = DEFAULT_WIKI_LOCALE,
 ): { answer: string; confidence: 'low' | 'medium' | 'high' } {
+  const copy = wikiCopy(locale);
   if (result.matchedNodes.length === 0) {
     return {
-      answer:
-        'No symbols in the structural graph matched this question. Try mentioning a concrete symbol, file, or directory name.',
+      answer: copy.askNoMatch,
       confidence: 'low',
     };
   }
   const lines = [
-    'Top matching symbols from the structural graph:',
+    copy.askTopSymbols,
     ...result.matchedNodes.map(
       (n) => `- \`${n.qualifiedName}\` (${n.kind}) — \`${n.filePath}\` L${n.startLine}–L${n.endLine}`,
     ),
   ];
   const paths = result.evidence.filter((e) => e.kind === 'call-path').slice(0, 6);
   if (paths.length > 0) {
-    lines.push('', 'Related call relationships:');
+    lines.push('', copy.askCallRelationships);
     lines.push(...paths.map((p) => `- ${p.detail}`));
   }
-  lines.push('', 'Configure a Provider in Settings for a narrated answer grounded in this evidence.');
+  lines.push('', copy.askConfigureProvider);
   return {
     answer: lines.join('\n'),
     confidence: result.matchedNodes.length >= 3 ? 'medium' : 'low',

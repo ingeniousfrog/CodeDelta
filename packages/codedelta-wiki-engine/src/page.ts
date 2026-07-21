@@ -7,6 +7,13 @@ import type {
   WikiSection,
 } from '@codedelta/types';
 import { mermaidArchitecture, mermaidCallFlow, mermaidModuleGraph } from './mermaid';
+import {
+  DEFAULT_WIKI_LOCALE,
+  formatWikiGeneratedFrom,
+  formatWikiMoreFiles,
+  wikiCopy,
+  type WikiLocale,
+} from './locale';
 import { isDocumentableSymbol } from './toc';
 import { rewriteWikiAssetUrls } from './readme-assets';
 
@@ -25,6 +32,8 @@ export interface WikiSectionContext {
   sourceSnippets: Array<{ node: CodeNode; snippet: string }>;
   /** README excerpt (overview section only). */
   readmeExcerpt?: string;
+  /** Locale used when rendering this section. */
+  locale: WikiLocale;
 }
 
 export interface BuildSectionContextOptions {
@@ -33,6 +42,7 @@ export interface BuildSectionContextOptions {
   maxSnippetLines?: number;
   /** Rewrite relative README image paths (e.g. docs/hero.png). */
   resolveReadmeAssetUrl?: (relativePath: string) => string;
+  locale?: WikiLocale;
 }
 
 function kindWeight(node: CodeNode): number {
@@ -109,6 +119,7 @@ export function buildSectionContext(
   const maxSymbols = options.maxSymbols ?? 20;
   const maxSnippets = options.maxSnippets ?? 8;
   const maxSnippetLines = options.maxSnippetLines ?? 40;
+  const locale = options.locale ?? DEFAULT_WIKI_LOCALE;
 
   let symbols: CodeNode[];
   let mermaid: string;
@@ -158,16 +169,17 @@ export function buildSectionContext(
     if (snippet) sourceSnippets.push({ node, snippet });
   }
 
-  return { section, symbols, evidence, mermaid, sourceSnippets, readmeExcerpt };
+  return { section, symbols, evidence, mermaid, sourceSnippets, readmeExcerpt, locale };
 }
 
-function symbolTable(symbols: CodeNode[]): string {
-  if (symbols.length === 0) return '_No documentable symbols in this area._';
+function symbolTable(symbols: CodeNode[], locale: WikiLocale): string {
+  const copy = wikiCopy(locale);
+  if (symbols.length === 0) return copy.noSymbols;
   const rows = symbols.map(
     (n) =>
       `| \`${n.qualifiedName}\` | ${n.kind} | \`${n.filePath}\` | L${n.startLine}–L${n.endLine} |`,
   );
-  return ['| Symbol | Kind | File | Lines |', '|---|---|---|---|', ...rows].join('\n');
+  return [copy.symbolTableHeader, ...rows].join('\n');
 }
 
 /**
@@ -178,34 +190,41 @@ export function renderDeterministicPage(
   snapshot: CodeGraphSnapshot,
   context: WikiSectionContext,
 ): string {
-  const { section } = context;
+  const { section, locale } = context;
+  const copy = wikiCopy(locale);
   const parts: string[] = [];
 
   parts.push(`# ${section.title}`);
   parts.push(
-    `> Generated from the structural graph at commit \`${snapshot.commitHash.slice(0, 7)}\`` +
-      ` — ${snapshot.files.length} files, ${snapshot.nodeCount} symbols indexed.`,
+    formatWikiGeneratedFrom(
+      locale,
+      snapshot.commitHash.slice(0, 7),
+      snapshot.files.length,
+      snapshot.nodeCount,
+    ),
   );
 
   if (context.readmeExcerpt) {
-    parts.push('## From the README');
+    parts.push(`## ${copy.fromReadme}`);
     parts.push(context.readmeExcerpt);
   }
 
   if (context.mermaid) {
-    parts.push(section.kind === 'overview' ? '## Module dependencies' : '## Call flow');
+    parts.push(
+      `## ${section.kind === 'overview' ? copy.moduleDependencies : copy.callFlow}`,
+    );
     parts.push('```mermaid\n' + context.mermaid + '\n```');
   }
 
-  parts.push('## Key symbols');
-  parts.push(symbolTable(context.symbols));
+  parts.push(`## ${copy.keySymbols}`);
+  parts.push(symbolTable(context.symbols, locale));
 
   if (section.kind === 'module' && section.files.length > 0) {
-    parts.push('## Files');
+    parts.push(`## ${copy.files}`);
     const shown = section.files.slice(0, 50);
     parts.push(shown.map((f) => `- \`${f}\``).join('\n'));
     if (section.files.length > shown.length) {
-      parts.push(`_…and ${section.files.length - shown.length} more files._`);
+      parts.push(formatWikiMoreFiles(locale, section.files.length - shown.length));
     }
   }
 

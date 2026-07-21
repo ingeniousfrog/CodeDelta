@@ -1,0 +1,25 @@
+{
+  "title": "提交时间线",
+  "branch": "分支",
+  "table": {
+    "hash": "哈希",
+    "message": "说明",
+    "author": "作者",
+    "date": "日期",
+    "files": "文件"
+  },
+  "meta": {
+    "author": "作者",
+    "date": "日期",
+    "changedFiles": "变更文件"
+  },
+  "changedFiles": "变更文件",
+  "openDelta": "在 Delta 视图打开",
+  "openTrace": "在 Trace 视图打开",
+  "openPanorama": "在 Panorama 打开",
+  "compareParent": "与父提交对比",
+  "rootNoParent": "根提交没有父提交",
+  "selectHint": "选择一个提交以查看详情与快捷操作。",
+  "footer": "需要另一个仓库？",
+  "importAgain": "再次导入"
+}

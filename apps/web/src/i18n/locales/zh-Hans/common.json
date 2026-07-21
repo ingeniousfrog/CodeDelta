@@ -1,0 +1,46 @@
+{
+  "brand": {
+    "tagline": "面向提交的结构智能",
+    "repository": "仓库"
+  },
+  "nav": {
+    "ariaMain": "主导航",
+    "sectionRepository": "仓库",
+    "sectionAnalysis": "分析",
+    "sectionSettings": "设置",
+    "import": "导入",
+    "timeline": "提交时间线",
+    "delta": "Delta 视图",
+    "trace": "Trace 视图",
+    "panorama": "Panorama",
+    "wiki": "Wiki",
+    "training": "训练数据",
+    "general": "通用",
+    "provider": "模型提供方",
+    "importFirst": "请先导入仓库"
+  },
+  "loading": "加载中…",
+  "boot": {
+    "starting": "正在启动本地服务…",
+    "connecting": "正在连接 API",
+    "waitingAttempt": "等待 API（第 {{attempt}} 次）",
+    "unreachable": "无法连接 CodeDelta API。若使用桌面应用，请退出后重新打开；否则请运行 npm run dev:codedelta。",
+    "stillUnreachable": "仍然无法连接 API。请检查 3847 端口是否可用。",
+    "retry": "重试",
+    "gitMissing": "PATH 中找不到 Git。导入与对比需要已安装 Git。"
+  },
+  "errors": {
+    "generic": "出错了",
+    "importFailed": "导入失败",
+    "loadRepoFailed": "加载仓库失败",
+    "loadCommitsFailed": "加载提交失败",
+    "loadCommitFailed": "加载提交详情失败",
+    "compareFailed": "对比失败",
+    "panoramaFailed": "Panorama 加载失败",
+    "fileDiffFailed": "加载文件 diff 失败",
+    "traceFailed": "Trace 失败",
+    "enrichFailed": "标注生成失败",
+    "saveFailed": "保存失败",
+    "loadSettingsFailed": "加载设置失败"
+  }
+}

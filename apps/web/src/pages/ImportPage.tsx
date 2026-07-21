@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { api, type RepoRef } from '../api/client';
 import {
@@ -12,6 +13,7 @@ import {
 } from '../components/ui';
 
 export default function ImportPage() {
+  const { t } = useTranslation(['import', 'common']);
   const navigate = useNavigate();
   const [githubUrl, setGithubUrl] = useState('');
   const [localPath, setLocalPath] = useState('');
@@ -34,7 +36,7 @@ export default function ImportPage() {
       const ref = await api.importRepo({ source, input: input.trim() });
       navigate(`/repos/${ref.id}/timeline`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import failed');
+      setError(err instanceof Error ? err.message : t('common:errors.importFailed'));
     } finally {
       setLoading(false);
     }
@@ -42,16 +44,13 @@ export default function ImportPage() {
 
   return (
     <div className="page">
-      <PageHeader
-        title="Import Repository"
-        description="Import a public GitHub repository or open a local git path. Commits are listed immediately; structural snapshots are built lazily when you compare or trace."
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {error && <Alert variant="error">{error}</Alert>}
 
       {recentRepos.length > 0 && (
         <Card>
-          <CardHeader title="Recent repositories" description="Previously imported in this data directory." />
+          <CardHeader title={t('recentTitle')} description={t('recentDesc')} />
           <ul className="recent-repos-list">
             {recentRepos.map((repo) => (
               <li key={repo.id}>
@@ -70,12 +69,12 @@ export default function ImportPage() {
 
       <div className="page-grid-2">
         <Card>
-          <CardHeader title="GitHub URL" description="Public repositories only in this version." />
-          <FormField label="Repository" htmlFor="github-url">
+          <CardHeader title={t('githubTitle')} description={t('githubDesc')} />
+          <FormField label={t('repoLabel')} htmlFor="github-url">
             <TextInput
               id="github-url"
               type="text"
-              placeholder="https://github.com/owner/repo or owner/repo"
+              placeholder={t('githubPlaceholder')}
               value={githubUrl}
               onChange={(e) => setGithubUrl(e.target.value)}
               disabled={loading}
@@ -86,17 +85,17 @@ export default function ImportPage() {
             disabled={loading || !githubUrl.trim()}
             onClick={() => handleImport('github', githubUrl)}
           >
-            {loading ? 'Importing…' : 'Import from GitHub'}
+            {loading ? t('importing') : t('importGithub')}
           </Button>
         </Card>
 
         <Card>
-          <CardHeader title="Local path" description="Absolute path to a git repository on this machine." />
-          <FormField label="Path" htmlFor="local-path">
+          <CardHeader title={t('localTitle')} description={t('localDesc')} />
+          <FormField label={t('pathLabel')} htmlFor="local-path">
             <TextInput
               id="local-path"
               type="text"
-              placeholder="/Users/you/projects/my-repo"
+              placeholder={t('localPlaceholder')}
               value={localPath}
               onChange={(e) => setLocalPath(e.target.value)}
               disabled={loading}
@@ -107,7 +106,7 @@ export default function ImportPage() {
             disabled={loading || !localPath.trim()}
             onClick={() => handleImport('local', localPath)}
           >
-            {loading ? 'Opening…' : 'Open local repository'}
+            {loading ? t('opening') : t('openLocal')}
           </Button>
         </Card>
       </div>

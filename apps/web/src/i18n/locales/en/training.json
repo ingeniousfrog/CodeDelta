@@ -1,0 +1,60 @@
+{
+  "title": "Training Data",
+  "copied": "Canonical JSONL copied.",
+  "source": "Source",
+  "range": "Range",
+  "history": "History",
+  "branch": "Branch",
+  "before": "Before",
+  "after": "After",
+  "filters": "Filters",
+  "maxChangedFiles": "Max changed files",
+  "maxDiffBytes": "Max diff bytes",
+  "maxUnrelatedModules": "Max unrelated modules",
+  "includeMerge": "Include merge commits",
+  "includeDocs": "Include docs-only commits",
+  "formats": "Formats",
+  "formatLabels": {
+    "canonical": "Canonical JSONL",
+    "alpaca": "Alpaca SFT",
+    "sharegpt": "ShareGPT SFT",
+    "dpo": "DPO",
+    "rl": "RL manifest"
+  },
+  "exporting": "Exporting…",
+  "startExport": "Start export",
+  "status": "Status",
+  "idle": "idle",
+  "step": "Step",
+  "commit": "Commit",
+  "progress": "Progress",
+  "slices": "Slices",
+  "skipped": "Skipped",
+  "export": "Export",
+  "artifacts": "Artifacts",
+  "download": "Download",
+  "copyCanonical": "Copy canonical JSONL",
+  "jsonlPreview": "JSONL Preview",
+  "steps": {
+    "starting": "Starting export",
+    "ready": "Ready",
+    "failed": "Failed",
+    "idle": "Idle"
+  },
+  "preview": {
+    "generating": "Canonical JSONL will appear here once the export writes artifacts.",
+    "loadingArtifacts": "Loading export artifacts...",
+    "noCanonicalSelected": "Canonical JSONL was not selected for this export.",
+    "noRows": "No canonical JSONL rows generated.",
+    "startHint": "Start an export to preview canonical JSONL here."
+  },
+  "errors": {
+    "loadPage": "Failed to load training data page",
+    "loadCommits": "Failed to load commits",
+    "exportFailed": "Training export failed",
+    "pollFailed": "Failed to poll export status",
+    "loadArtifacts": "Failed to load artifacts",
+    "startFailed": "Failed to start export",
+    "clipboard": "Clipboard copy failed"
+  }
+}

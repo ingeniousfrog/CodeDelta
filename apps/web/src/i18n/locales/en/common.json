@@ -1,0 +1,46 @@
+{
+  "brand": {
+    "tagline": "commit-aware structural intelligence",
+    "repository": "Repository"
+  },
+  "nav": {
+    "ariaMain": "Main",
+    "sectionRepository": "Repository",
+    "sectionAnalysis": "Analysis",
+    "sectionSettings": "Settings",
+    "import": "Import",
+    "timeline": "Commit Timeline",
+    "delta": "Delta View",
+    "trace": "Trace View",
+    "panorama": "Panorama",
+    "wiki": "Wiki",
+    "training": "Training Data",
+    "general": "General",
+    "provider": "Provider Settings",
+    "importFirst": "Import a repository first"
+  },
+  "loading": "Loading…",
+  "boot": {
+    "starting": "Starting local services…",
+    "connecting": "Connecting to API",
+    "waitingAttempt": "Waiting for API (attempt {{attempt}})",
+    "unreachable": "Cannot reach the CodeDelta API. If you use the desktop app, quit and reopen it. Otherwise run npm run dev:codedelta.",
+    "stillUnreachable": "Still cannot reach the API. Check that port 3847 is free.",
+    "retry": "Retry",
+    "gitMissing": "Git is not available on PATH. Import and compare require git to be installed."
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "importFailed": "Import failed",
+    "loadRepoFailed": "Failed to load repository",
+    "loadCommitsFailed": "Failed to load commits",
+    "loadCommitFailed": "Failed to load commit",
+    "compareFailed": "Compare failed",
+    "panoramaFailed": "Panorama failed",
+    "fileDiffFailed": "Failed to load file diff",
+    "traceFailed": "Trace failed",
+    "enrichFailed": "Enrich failed",
+    "saveFailed": "Save failed",
+    "loadSettingsFailed": "Failed to load settings"
+  }
+}

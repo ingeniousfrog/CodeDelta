@@ -1,0 +1,60 @@
+{
+  "title": "训练数据",
+  "copied": "已复制 Canonical JSONL。",
+  "source": "来源",
+  "range": "区间",
+  "history": "历史",
+  "branch": "分支",
+  "before": "之前",
+  "after": "之后",
+  "filters": "过滤",
+  "maxChangedFiles": "最大变更文件数",
+  "maxDiffBytes": "最大 diff 字节数",
+  "maxUnrelatedModules": "最大无关模块数",
+  "includeMerge": "包含 merge 提交",
+  "includeDocs": "包含仅文档提交",
+  "formats": "格式",
+  "formatLabels": {
+    "canonical": "Canonical JSONL",
+    "alpaca": "Alpaca SFT",
+    "sharegpt": "ShareGPT SFT",
+    "dpo": "DPO",
+    "rl": "RL manifest"
+  },
+  "exporting": "导出中…",
+  "startExport": "开始导出",
+  "status": "状态",
+  "idle": "空闲",
+  "step": "步骤",
+  "commit": "提交",
+  "progress": "进度",
+  "slices": "切片",
+  "skipped": "已跳过",
+  "export": "导出",
+  "artifacts": "产物",
+  "download": "下载",
+  "copyCanonical": "复制 Canonical JSONL",
+  "jsonlPreview": "JSONL 预览",
+  "steps": {
+    "starting": "开始导出",
+    "ready": "就绪",
+    "failed": "失败",
+    "idle": "空闲"
+  },
+  "preview": {
+    "generating": "导出写入产物后，此处将显示 Canonical JSONL。",
+    "loadingArtifacts": "正在加载导出产物…",
+    "noCanonicalSelected": "本次导出未选择 Canonical JSONL。",
+    "noRows": "未生成 Canonical JSONL 行。",
+    "startHint": "开始导出后可在此预览 Canonical JSONL。"
+  },
+  "errors": {
+    "loadPage": "加载训练数据页失败",
+    "loadCommits": "加载提交失败",
+    "exportFailed": "训练导出失败",
+    "pollFailed": "轮询导出状态失败",
+    "loadArtifacts": "加载产物失败",
+    "startFailed": "启动导出失败",
+    "clipboard": "剪贴板复制失败"
+  }
+}

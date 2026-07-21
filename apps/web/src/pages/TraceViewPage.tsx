@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type TraceAnswer } from '../api/client';
 import {
@@ -16,45 +17,6 @@ import {
 import type { TraceEvidenceItem } from '../types';
 import { clearTraceSession, loadTraceSession, saveTraceSession } from '../lib/trace-cache';
 
-const EVIDENCE_KIND_LABEL: Record<string, string> = {
-  'commit-message': 'Commit message',
-  'changed-file': 'Changed file',
-  'changed-symbol': 'Changed symbol',
-  'edge-change': 'Dependency edge',
-  'risk-tag': 'Risk tag',
-  'entry-point': 'Entry point',
-  'code-diff': 'Code diff',
-  'delta-summary': 'Delta summary',
-  'delta-unavailable': 'Delta unavailable',
-};
-
-const EVOLUTION_LABEL: Record<string, string> = {
-  before: 'Before',
-  candidate: 'Candidate',
-  after: 'After',
-  current: 'Current',
-};
-
-function confidenceHint(level: string): string {
-  switch (level) {
-    case 'high':
-      return 'Strong match to your question; verify in Delta View first.';
-    case 'medium':
-      return 'Moderate signals; cross-check candidates and diffs.';
-    default:
-      return 'Weak or short history; treat as directional only.';
-  }
-}
-
-function formatProviderNote(result: TraceAnswer): string | null {
-  const p = result.provider;
-  if (!p?.used) return null;
-  if (p.nonAuthoritativeText) {
-    return 'Model output failed validation; showing deterministic analysis only.';
-  }
-  return `Refined with ${p.type}${p.model ? ` (${p.model})` : ''}; evidence and Delta verification remain authoritative.`;
-}
-
 function groupEvidenceByCommit(evidence: TraceEvidenceItem[]): Map<string, TraceEvidenceItem[]> {
   const map = new Map<string, TraceEvidenceItem[]>();
   for (const ev of evidence) {
@@ -66,6 +28,7 @@ function groupEvidenceByCommit(evidence: TraceEvidenceItem[]): Map<string, Trace
 }
 
 export default function TraceViewPage() {
+  const { t } = useTranslation(['trace', 'common']);
   const { repoId } = useParams<{ repoId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -80,6 +43,45 @@ export default function TraceViewPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<TraceAnswer | null>(null);
   const [restored, setRestored] = useState(false);
+
+  const evidenceKindLabel = useCallback(
+    (kind: string) => t(`evidenceKinds.${kind}`, { defaultValue: kind }),
+    [t],
+  );
+
+  const evolutionLabel = useCallback(
+    (label: string) => t(`evolution.${label}`, { defaultValue: label }),
+    [t],
+  );
+
+  const confidenceHint = useCallback(
+    (level: string) => {
+      switch (level) {
+        case 'high':
+          return t('confidenceHints.high');
+        case 'medium':
+          return t('confidenceHints.medium');
+        default:
+          return t('confidenceHints.low');
+      }
+    },
+    [t],
+  );
+
+  const formatProviderNote = useCallback(
+    (traceResult: TraceAnswer): string | null => {
+      const p = traceResult.provider;
+      if (!p?.used) return null;
+      if (p.nonAuthoritativeText) {
+        return t('providerFailed');
+      }
+      return t('providerRefined', {
+        type: p.type,
+        model: p.model ? ` (${p.model})` : '',
+      });
+    },
+    [t],
+  );
 
   const persist = useCallback(
     (next: TraceAnswer, q: string, b: string, limit: number, diffEv: boolean) => {
@@ -106,9 +108,9 @@ export default function TraceViewPage() {
       setResult(cached.result);
       setRestored(true);
     } else if (candidate) {
-      setQuestion(`Which commit likely introduced an issue related to ${candidate.slice(0, 7)}?`);
+      setQuestion(t('candidateQuestion', { shortHash: candidate.slice(0, 7) }));
     }
-  }, [repoId, candidate]);
+  }, [repoId, candidate, t]);
 
   useEffect(() => {
     if (!repoId) return;
@@ -138,7 +140,7 @@ export default function TraceViewPage() {
     } catch (err) {
       setResult(null);
       if (repoId) clearTraceSession(repoId);
-      setError(err instanceof Error ? err.message : 'Trace failed');
+      setError(err instanceof Error ? err.message : t('common:errors.traceFailed'));
     } finally {
       setLoading(false);
     }
@@ -193,29 +195,26 @@ export default function TraceViewPage() {
 
   return (
     <div className="page">
-      <PageHeader
-        title="Trace View"
-        description="Find commits that may have introduced a behavior change from your description, with evidence you can verify in Delta View."
-      />
+      <PageHeader title={t('title')} description={t('description')} />
 
       {restored && result && (
-        <Alert variant="success">Restored your previous trace results (navigation-safe).</Alert>
+        <Alert variant="success">{t('restored')}</Alert>
       )}
 
       <Card>
-        <FormField label="Issue description" htmlFor="trace-question">
+        <FormField label={t('questionLabel')} htmlFor="trace-question">
           <TextArea
             id="trace-question"
             rows={3}
-            placeholder="e.g. When did login redirect start failing after the OAuth callback?"
+            placeholder={t('questionPlaceholder')}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
           />
         </FormField>
         <div className="form-row">
-          <FormField label="Branch">
+          <FormField label={t('branch')}>
             <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
-              <option value="">Default branch</option>
+              <option value="">{t('defaultBranch')}</option>
               {branches.map((b) => (
                 <option key={b} value={b}>
                   {b}
@@ -223,7 +222,7 @@ export default function TraceViewPage() {
               ))}
             </Select>
           </FormField>
-          <FormField label="Commits to scan">
+          <FormField label={t('commitLimit')}>
             <Select value={String(commitLimit)} onChange={(e) => setCommitLimit(Number(e.target.value))}>
               <option value="30">30</option>
               <option value="50">50</option>
@@ -231,19 +230,19 @@ export default function TraceViewPage() {
               <option value="120">120</option>
             </Select>
           </FormField>
-          <FormField label="Include diff evidence">
+          <FormField label={t('includeDiff')}>
             <Select
               value={includeDiffEvidence ? 'yes' : 'no'}
               onChange={(e) => setIncludeDiffEvidence(e.target.value === 'yes')}
             >
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
+              <option value="yes">{t('yes')}</option>
+              <option value="no">{t('no')}</option>
             </Select>
           </FormField>
         </div>
         <div className="btn-row">
           <Button variant="primary" onClick={runTrace} disabled={loading || !question.trim()}>
-            {loading ? 'Tracing…' : 'Run trace'}
+            {loading ? t('tracing') : t('runTrace')}
           </Button>
           {result && (
             <Button
@@ -254,7 +253,7 @@ export default function TraceViewPage() {
                 if (repoId) clearTraceSession(repoId);
               }}
             >
-              Clear results
+              {t('clearResults')}
             </Button>
           )}
         </div>
@@ -265,7 +264,7 @@ export default function TraceViewPage() {
       {result && (
         <>
           <Card className="panel-highlight">
-            <CardHeader title="Conclusion" />
+            <CardHeader title={t('conclusion')} />
             <div className="trace-summary-layout">
               <div>
                 <p className="trace-direct-answer">{result.directAnswer}</p>
@@ -279,14 +278,14 @@ export default function TraceViewPage() {
                 {providerNote && <p className="hint" style={{ marginTop: '0.5rem' }}>{providerNote}</p>}
               </div>
               <div className="trace-summary-aside">
-                <Badge variant="accent">Confidence: {result.confidence}</Badge>
+                <Badge variant="accent">{t('confidence', { level: result.confidence })}</Badge>
                 {topCandidate?.previousCommitHash && result.mostLikelyCommit && (
                   <>
                     <Button
                       variant="primary"
                       onClick={() => openDelta(topCandidate.previousCommitHash!, result.mostLikelyCommit!.hash)}
                     >
-                      Verify in Delta View
+                      {t('verifyDelta')}
                     </Button>
                     <Button
                       variant="secondary"
@@ -294,32 +293,28 @@ export default function TraceViewPage() {
                         openPanorama(topCandidate.previousCommitHash!, result.mostLikelyCommit!.hash)
                       }
                     >
-                      View in Panorama
+                      {t('viewPanorama')}
                     </Button>
                   </>
                 )}
               </div>
             </div>
             {providerWarnings.length > 0 && (
-              <Alert variant="warning" title="AI assist unavailable">
+              <Alert variant="warning" title={t('aiUnavailable')}>
                 <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
                   {providerWarnings.map((w, i) => (
                     <li key={i}>{w}</li>
                   ))}
                 </ul>
                 <p className="form-hint" style={{ marginTop: '0.5rem' }}>
-                  Candidates and evidence below are still valid. Ensure <code className="mono">codex login</code>{' '}
-                  works on this machine, then restart <code className="mono">npm run dev:codedelta</code> and retry.
+                  {t('aiUnavailableHint')}
                 </p>
               </Alert>
             )}
           </Card>
 
           <Card>
-            <CardHeader
-              title="Candidate commits"
-              description="Higher score means stronger lexical/structural signals — not guaranteed root cause."
-            />
+            <CardHeader title={t('candidatesTitle')} description={t('candidatesDesc')} />
             <ul className="candidate-list">
               {result.candidates.map((c, idx) => (
                 <li key={c.commit.hash} className={`candidate-item ${idx === 0 ? 'candidate-item-top' : ''}`}>
@@ -328,30 +323,33 @@ export default function TraceViewPage() {
                     <strong>
                       <Mono>{c.commit.shortHash}</Mono>
                     </strong>
-                    <span className="candidate-score">Score {c.relevanceScore}</span>
+                    <span className="candidate-score">{t('score', { score: c.relevanceScore })}</span>
                   </div>
                   <p>{c.commit.message}</p>
                   <p className="hint">{c.reasons.join(' · ')}</p>
                   {c.changedFiles.length > 0 && (
                     <p className="hint">
-                      Files: {c.changedFiles
+                      {t('files')}{' '}
+                      {c.changedFiles
                         .slice(0, 5)
                         .map((f) => f.path)
                         .join(', ')}
-                      {c.changedFiles.length > 5 ? ` (+${c.changedFiles.length - 5} more)` : ''}
+                      {c.changedFiles.length > 5
+                        ? ` ${t('moreFiles', { count: c.changedFiles.length - 5 })}`
+                        : ''}
                     </p>
                   )}
                   {c.previousCommitHash ? (
                     <>
                       <Button variant="link" onClick={() => openDelta(c.previousCommitHash!, c.commit.hash)}>
-                        Compare parent → this commit in Delta
+                        {t('compareInDelta')}
                       </Button>
                       <Button variant="link" onClick={() => openPanorama(c.previousCommitHash!, c.commit.hash)}>
-                        View in Panorama
+                        {t('viewPanorama')}
                       </Button>
                     </>
                   ) : (
-                    <p className="hint">No parent commit for structural comparison.</p>
+                    <p className="hint">{t('noParent')}</p>
                   )}
                 </li>
               ))}
@@ -359,12 +357,12 @@ export default function TraceViewPage() {
           </Card>
 
           <details className="card details-card">
-            <summary>Change timeline</summary>
+            <summary>{t('changeTimeline')}</summary>
             <div className="details-body">
               <ul className="file-list">
                 {result.evolution.map((s, i) => (
                   <li key={`${s.label}-${i}`}>
-                    <strong>{EVOLUTION_LABEL[s.label] ?? s.label}</strong>
+                    <strong>{evolutionLabel(s.label)}</strong>
                     {s.commitHash ? ` (${s.commitHash.slice(0, 7)})` : ''} — {s.summary}
                   </li>
                 ))}
@@ -374,20 +372,28 @@ export default function TraceViewPage() {
 
           <details className="card details-card">
             <summary>
-              Impact overview ({result.impactRadius.files.length} files · {result.impactRadius.symbols.length}{' '}
-              symbols)
+              {t('impactOverview', {
+                files: result.impactRadius.files.length,
+                symbols: result.impactRadius.symbols.length,
+              })}
             </summary>
             <div className="details-body">
-              <p className="hint">Risk tags: {result.impactRadius.riskTags.join(', ') || 'none'}</p>
               <p className="hint">
-                Entry points: {result.impactRadius.entryPoints.slice(0, 8).join(', ') || 'none detected'}
+                {t('riskTags', {
+                  tags: result.impactRadius.riskTags.join(', ') || t('none'),
+                })}
+              </p>
+              <p className="hint">
+                {t('entryPoints', {
+                  points: result.impactRadius.entryPoints.slice(0, 8).join(', ') || t('noneDetected'),
+                })}
               </p>
             </div>
           </details>
 
           {(userFacingUncertainty.length > 0 || result.suggestedNextChecks.length > 0) && (
             <details className="card details-card" open>
-              <summary>Uncertainty and next steps</summary>
+              <summary>{t('uncertainty')}</summary>
               <div className="details-body">
                 {userFacingUncertainty.length > 0 && (
                   <ul className="file-list">
@@ -398,7 +404,7 @@ export default function TraceViewPage() {
                 )}
                 {result.suggestedNextChecks.length > 0 && (
                   <>
-                    <h3>Suggested checks</h3>
+                    <h3>{t('suggestedChecks')}</h3>
                     <ul className="file-list">
                       {result.suggestedNextChecks.map((s, i) => (
                         <li key={i}>{s}</li>
@@ -411,9 +417,9 @@ export default function TraceViewPage() {
           )}
 
           <details className="card details-card">
-            <summary>Evidence details ({result.evidence.length} items)</summary>
+            <summary>{t('evidenceDetails', { count: result.evidence.length })}</summary>
             <div className="details-body">
-              <p className="hint">Each item maps to a commit. Open Delta for code-level verification.</p>
+              <p className="hint">{t('evidenceHint')}</p>
               {Array.from(evidenceByCommit.entries()).map(([hash, items]: [string, TraceEvidenceItem[]]) => (
                 <div key={hash} className="evidence-group">
                   <h3>
@@ -422,7 +428,7 @@ export default function TraceViewPage() {
                   <ul className="file-list">
                     {items.map((ev) => (
                       <li key={ev.id}>
-                        <span className="evidence-kind">{EVIDENCE_KIND_LABEL[ev.kind] ?? ev.kind}</span>
+                        <span className="evidence-kind">{evidenceKindLabel(ev.kind)}</span>
                         {' — '}
                         {ev.title}
                         {ev.file && <span className="hint"> ({ev.file})</span>}
@@ -438,8 +444,8 @@ export default function TraceViewPage() {
 
       {!result && !loading && !error && (
         <p className="hint">
-          Enter a specific question and run trace. You can also start from{' '}
-          <Link to={`/repos/${repoId}/timeline`}>Commit Timeline</Link>.
+          {t('emptyHint')}{' '}
+          <Link to={`/repos/${repoId}/timeline`}>{t('commitTimeline')}</Link>.
         </p>
       )}
     </div>

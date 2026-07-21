@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import ImportPage from './pages/ImportPage';
@@ -10,10 +11,12 @@ const TraceViewPage = lazy(() => import('./pages/TraceViewPage'));
 const PanoramaPage = lazy(() => import('./pages/PanoramaPage'));
 const WikiPage = lazy(() => import('./pages/WikiPage'));
 const TrainingDataPage = lazy(() => import('./pages/TrainingDataPage'));
+const GeneralSettingsPage = lazy(() => import('./pages/GeneralSettingsPage'));
 const ProviderSettingsPage = lazy(() => import('./pages/ProviderSettingsPage'));
 
 function PageFallback() {
-  return <p className="hint" style={{ padding: '2rem' }}>Loading…</p>;
+  const { t } = useTranslation('common');
+  return <p className="hint" style={{ padding: '2rem' }}>{t('loading')}</p>;
 }
 
 export function AppRoutes() {
@@ -67,6 +70,14 @@ export function AppRoutes() {
           element={
             <Suspense fallback={<PageFallback />}>
               <TrainingDataPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <GeneralSettingsPage />
             </Suspense>
           }
         />

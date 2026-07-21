@@ -7,6 +7,12 @@ export {
   type PlanWikiTocOptions,
 } from './toc';
 export {
+  DEFAULT_WIKI_LOCALE,
+  normalizeWikiLocale,
+  wikiCopy,
+  type WikiLocale,
+} from './locale';
+export {
   buildWikiAssetUrl,
   normalizeWikiAssetPath,
   rewriteWikiAssetUrls,

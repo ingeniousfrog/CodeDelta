@@ -65,7 +65,7 @@ flowchart TB
   Wiki --> Ask["Ask this repo\nLLM + 图证据白名单"]
   Training -->|"diff 生成 episode"| Delta
 
-  Provider["设置 → Provider\n(Codex / OpenAI / 无)"]
+  Provider["设置 → 通用 / Provider\n(语言 + LLM)"]
   Provider -.->|"可选叙述"| Trace
   Provider -.->|"叙述 + Ask（必需）"| Wiki
   Provider -.->|"切片审查（必需）"| Training
@@ -255,10 +255,11 @@ npm run dev:codedelta
 5. **Panorama** — 选分支/commit 探索调用树；从任意入口或路由下钻
 6. **Wiki** — 选 commit、生成 wiki、浏览页面，并用带引用的 Ask 提问
 7. **Training Data** — 导出 commit 区间或分支历史为 SFT/DPO/RL 数据集（需配置 Provider）
+8. **设置 → 通用** — 切换界面语言（English / 简体中文）；Wiki 正文按语言分别生成与缓存
 
 ## 界面导览
 
-以下截图为 **桌面版 v0.2.2**（Analysis 导航含 Delta、Trace、Panorama、Wiki、Training Data）。展示宽度已限制，便于阅读；点击图片可查看原图。
+以下截图为 **桌面版 v0.2.3**（Analysis 导航含 Delta、Trace、Panorama、Wiki、Training Data；设置含通用与模型提供方）。展示宽度已限制，便于阅读；点击图片可查看原图。
 
 ### 1) 导入仓库
 
@@ -304,12 +305,12 @@ API：[http://localhost:3847](http://localhost:3847)
 | `POST /api/repos/:id/panorama/enrich` | 可选 LLM 节点标签 |
 | `GET /api/repos/:id/diff?base=&head=&file=` | 单文件 unified diff |
 | `POST /api/repos/:id/trace` | Trace 问题 → 候选 + 证据 |
-| `POST /api/repos/:id/wiki/generate?commit=` | 开始 wiki 生成（后台任务） |
-| `GET /api/repos/:id/wiki/status?commit=` | 生成状态与进度 |
-| `GET /api/repos/:id/wiki/toc?commit=` | Wiki 目录 |
-| `GET /api/repos/:id/wiki/page?commit=&section=` | 单页（markdown + 引用） |
+| `POST /api/repos/:id/wiki/generate?commit=&locale=` | 开始 wiki 生成（后台任务；`locale` = `en` \| `zh-Hans`） |
+| `GET /api/repos/:id/wiki/status?commit=&locale=` | 生成状态与进度 |
+| `GET /api/repos/:id/wiki/toc?commit=&locale=` | Wiki 目录 |
+| `GET /api/repos/:id/wiki/page?commit=&section=&locale=` | 单页（markdown + 引用） |
 | `GET /api/repos/:id/wiki/asset?commit=&path=` | commit 上的 README / wiki 图片 |
-| `POST /api/repos/:id/wiki/ask` | 问题 → 基于 commit 图的带引用回答 |
+| `POST /api/repos/:id/wiki/ask` | 问题 → 带引用回答（`body.locale` 选择回答语言） |
 | `POST /api/repos/:id/training/export` | 开始训练数据导出（后台任务） |
 | `GET /api/repos/:id/training/exports/:exportId/status` | 导出任务状态与进度 |
 | `GET /api/repos/:id/training/exports/:exportId/artifacts` | 列出生成的文件 |
@@ -337,6 +338,12 @@ codex login
 3. 确认页面显示已检测到本机登录（`~/.codex/` 下路径）
 4. **Model** — 留空则使用 `~/.codex/config.toml` 中的 `model`，或覆盖（如 `gpt-5.5`）
 5. **Save settings**
+
+### 界面语言（English / 简体中文）
+
+打开 **设置 → 通用**，选择 **EN** 或 **中文**。偏好保存在浏览器 `localStorage`，立即作用于导航、页面文案与表单。
+
+**Wiki** 页面与 **Ask** 回答跟随同一语言：切换语言会使用独立 wiki 缓存，若该语言尚未生成，需重新点「生成 Wiki」。确定性章节（目录标题、表格等）会即时本地化；LLM 叙述需已配置 Provider。
 
 ### 3. 运行 Trace
 
@@ -426,15 +433,15 @@ apps/desktop/                 # macOS / Windows 桌面壳（Tauri 2）
 
 CodeDelta 提供 **桌面应用**（[`apps/desktop/`](apps/desktop/)）— Tauri 2 壳，内置 Node 22（供 CodeGraph `node:sqlite`）与 API 服务。终端用户无需单独安装 Node。
 
-**版本** 来自 `apps/desktop/src-tauri/tauri.conf.json`（当前 **0.2.2**）。macOS 与 Windows 安装包发布在同一 GitHub Release：[`codedelta-desktop-v0.2.2`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2)。桌面版包含 **Delta、Trace、Panorama、Wiki 与 Training Data**（Wiki Ask 与 Training 导出需配置 LLM Provider）。
+**版本** 来自 `apps/desktop/src-tauri/tauri.conf.json`（当前 **0.2.3**）。macOS 与 Windows 安装包发布在同一 GitHub Release：[`codedelta-desktop-v0.2.3`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3)。桌面版包含 **Delta、Trace、Panorama、Wiki 与 Training Data**，以及 **EN / 简体中文** 界面（Wiki Ask 与 Training 导出需配置 LLM Provider）。
 
 ### 下载
 
 | 平台 | 文件 | 说明 |
 |------|------|------|
-| **macOS**（Apple Silicon） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_aarch64.dmg` | 未签名；若被拦截请右键 → 打开 |
-| **Windows**（x64） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_x64-setup.exe` | NSIS 安装包 |
-| macOS 镜像 | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **仅旧版 v0.1.0** — 无 Wiki / Training；请用 [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) 获取当前版本 |
+| **macOS**（Apple Silicon） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3) → `CodeDelta_*_aarch64.dmg` | 未签名；若被拦截请右键 → 打开 |
+| **Windows**（x64） | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3) → `CodeDelta_*_x64-setup.exe` | NSIS 安装包 |
+| macOS 镜像 | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **仅旧版 v0.1.0** — 无 Wiki / Training；请用 [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3) 获取当前版本 |
 
 **安装（macOS）：** 打开 dmg → 将 **CodeDelta** 拖入「应用程序」。
 

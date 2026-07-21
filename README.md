@@ -65,7 +65,7 @@ flowchart TB
   Wiki --> Ask["Ask this repo\nLLM + graph evidence whitelist"]
   Training -->|"episodes from diffs"| Delta
 
-  Provider["Settings → Provider\n(Codex / OpenAI / none)"]
+  Provider["Settings → General / Provider\n(language + LLM)"]
   Provider -.->|"optional narration"| Trace
   Provider -.->|"narration + Ask (required)"| Wiki
   Provider -.->|"slice review (required)"| Training
@@ -255,10 +255,11 @@ Open [http://localhost:3847](http://localhost:3847) (dev mode proxies the Vite U
 5. **Panorama** — pick branch/commit and explore call trees; drill down from any entry or route
 6. **Wiki** — pick a commit, generate the wiki, browse pages, and ask questions with cited answers
 7. **Training Data** — export a commit range or branch history to SFT/DPO/RL datasets (provider required)
+8. **Settings → General** — switch UI language (English / 简体中文); Wiki content is generated per language
 
 ## UI walkthrough
 
-Screenshots from **desktop v0.2.2** (Analysis nav: Delta, Trace, Panorama, Wiki, Training Data). Display width capped for readability — click any image to view full size.
+Screenshots from **desktop v0.2.3** (Analysis nav: Delta, Trace, Panorama, Wiki, Training Data; Settings: General + Provider). Display width capped for readability — click any image to view full size.
 
 ### 1) Import repository
 
@@ -304,12 +305,12 @@ API: [http://localhost:3847](http://localhost:3847)
 | `POST /api/repos/:id/panorama/enrich` | Optional LLM labels for panorama nodes |
 | `GET /api/repos/:id/diff?base=&head=&file=` | Unified diff for one file |
 | `POST /api/repos/:id/trace` | Trace question → candidates + evidence |
-| `POST /api/repos/:id/wiki/generate?commit=` | Start wiki generation (background job) |
-| `GET /api/repos/:id/wiki/status?commit=` | Generation state + progress |
-| `GET /api/repos/:id/wiki/toc?commit=` | Wiki table of contents |
-| `GET /api/repos/:id/wiki/page?commit=&section=` | One wiki page (markdown + citations) |
+| `POST /api/repos/:id/wiki/generate?commit=&locale=` | Start wiki generation (background job; `locale` = `en` \| `zh-Hans`) |
+| `GET /api/repos/:id/wiki/status?commit=&locale=` | Generation state + progress |
+| `GET /api/repos/:id/wiki/toc?commit=&locale=` | Wiki table of contents |
+| `GET /api/repos/:id/wiki/page?commit=&section=&locale=` | One wiki page (markdown + citations) |
 | `GET /api/repos/:id/wiki/asset?commit=&path=` | README / wiki image at commit (git show) |
-| `POST /api/repos/:id/wiki/ask` | Question → cited answer over the commit graph |
+| `POST /api/repos/:id/wiki/ask` | Question → cited answer (`body.locale` selects answer language) |
 | `POST /api/repos/:id/training/export` | Start training export (background job) |
 | `GET /api/repos/:id/training/exports/:exportId/status` | Export job state + progress |
 | `GET /api/repos/:id/training/exports/:exportId/artifacts` | List generated files |
@@ -337,6 +338,12 @@ This creates or updates `~/.codex/auth.json` (ChatGPT OAuth). You can override t
 3. Confirm the page shows that local login was detected (path under `~/.codex/`)
 4. **Model** — leave empty to use `model` from `~/.codex/config.toml`, or override (e.g. `gpt-5.5`)
 5. **Save settings**
+
+### UI language (English / 简体中文)
+
+Open **Settings → General** and pick **EN** or **中文**. The choice is stored in the browser (`localStorage`) and applies to navigation, page copy, and forms.
+
+**Wiki** pages and **Ask** answers follow the same language: switching language uses a separate wiki cache, so regenerate the wiki after switching if that language has not been generated yet. Deterministic wiki sections (TOC titles, tables) localize immediately; LLM narration requires a configured provider.
 
 ### 3. Run Trace
 
@@ -426,15 +433,15 @@ Roadmap and deferred work: [docs/codedelta/ROADMAP.md](docs/codedelta/ROADMAP.md
 
 CodeDelta ships **desktop apps** ([`apps/desktop/`](apps/desktop/)) — Tauri 2 shells that bundle Node 22 (for CodeGraph’s `node:sqlite`) and the API server. End users do not need a separate Node install.
 
-**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently **0.2.2**). macOS and Windows installers publish to the same GitHub Release: [`codedelta-desktop-v0.2.2`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2). Desktop bundles include **Delta, Trace, Panorama, Wiki, and Training Data** (Wiki Ask and Training export require a configured LLM provider).
+**Version** is read from `apps/desktop/src-tauri/tauri.conf.json` (currently **0.2.3**). macOS and Windows installers publish to the same GitHub Release: [`codedelta-desktop-v0.2.3`](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3). Desktop bundles include **Delta, Trace, Panorama, Wiki, and Training Data**, plus **EN / 简体中文** UI (Wiki Ask and Training export require a configured LLM provider).
 
 ### Download
 
 | Platform | File | Notes |
 |----------|------|-------|
-| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
-| **Windows** (x64) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) → `CodeDelta_*_x64-setup.exe` | NSIS installer |
-| macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **Legacy v0.1.0 only** — no Wiki / Training; use [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.2) for current builds |
+| **macOS** (Apple Silicon) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3) → `CodeDelta_*_aarch64.dmg` | Unsigned; right-click → Open if blocked |
+| **Windows** (x64) | [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3) → `CodeDelta_*_x64-setup.exe` | NSIS installer |
+| macOS mirror | [百度网盘](https://pan.baidu.com/s/1FQxOgNHyvU1Y5EB34RpogQ?pwd=frog) · 提取码: `frog` | **Legacy v0.1.0 only** — no Wiki / Training; use [GitHub Releases](https://github.com/ingeniousfrog/CodeDelta/releases/tag/codedelta-desktop-v0.2.3) for current builds |
 
 **Install (macOS):** open the dmg → drag **CodeDelta** to Applications.
 

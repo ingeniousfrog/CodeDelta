@@ -1,0 +1,54 @@
+{
+  "general": {
+    "title": "General",
+    "description": "Interface language and other preferences.",
+    "language": "Language",
+    "languageHint": "Default is English. Choose Chinese to localize titles, navigation, and page copy.",
+    "en": "EN",
+    "zh": "中文"
+  },
+  "provider": {
+    "title": "Provider Settings",
+    "description": "Optional language model for Trace View. Deterministic analysis always runs; model output is non-authoritative.",
+    "saved": "Settings saved.",
+    "providerCardTitle": "Provider",
+    "providerCardDesc": "Select how Trace View may call a model.",
+    "unimplemented": "This provider is not implemented yet. Choose No AI, Codex OAuth, or OpenAI.",
+    "checkingCodex": "Checking local Codex configuration…",
+    "configDirectory": "Config directory:",
+    "codexLoginStatus": "Codex login status",
+    "model": "Model",
+    "modelHint": "Leave empty to use model from ~/.codex/config.toml",
+    "codexLoginHint": "Run codex login in your terminal; no API key is stored in CodeDelta.",
+    "apiCredentials": "API credentials",
+    "apiKey": "API key",
+    "baseUrl": "Base URL",
+    "save": "Save settings",
+    "kinds": {
+      "none": {
+        "label": "No AI",
+        "description": "Deterministic trace candidates and evidence only; no model calls."
+      },
+      "codex-oauth": {
+        "label": "Codex OAuth",
+        "description": "Reuse local Codex CLI login (~/.codex/auth.json). Run codex login first."
+      },
+      "openai": {
+        "label": "OpenAI API key",
+        "description": "Direct OpenAI chat/completions API."
+      },
+      "openai-compatible": {
+        "label": "OpenAI-compatible",
+        "description": "Custom endpoint with an OpenAI-compatible API."
+      },
+      "anthropic": {
+        "label": "Anthropic",
+        "description": "Not implemented yet."
+      },
+      "ollama": {
+        "label": "Ollama",
+        "description": "Not implemented yet."
+      }
+    }
+  }
+}

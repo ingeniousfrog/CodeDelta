@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   api,
@@ -31,24 +32,14 @@ type ContributorFactor =
   | 'riskTags'
   | 'entryPoints';
 
-function contributorLabel(factor: ContributorFactor): string {
-  switch (factor) {
-    case 'affectedNodes':
-      return 'Blast radius';
-    case 'entryPoints':
-      return 'Entry surface';
-    case 'changedEdges':
-      return 'Dependency churn';
-    case 'changedSymbols':
-      return 'Symbol churn';
-    case 'riskTags':
-      return 'Risk signals';
-    case 'changedFiles':
-      return 'File spread';
-    default:
-      return factor;
-  }
-}
+const CONTRIBUTOR_KEYS: Record<ContributorFactor, string> = {
+  affectedNodes: 'contributors.affectedNodes',
+  entryPoints: 'contributors.entryPoints',
+  changedEdges: 'contributors.changedEdges',
+  changedSymbols: 'contributors.changedSymbols',
+  riskTags: 'contributors.riskTags',
+  changedFiles: 'contributors.changedFiles',
+};
 
 function impactBadgeVariant(severity: string): 'impact-low' | 'impact-medium' | 'impact-high' | 'impact-critical' {
   if (severity === 'critical') return 'impact-critical';
@@ -70,6 +61,7 @@ function SymbolTable({
   rows: Array<{ id: string; kind: string; filePath: string; name: string }>;
   onOpenFile: (filePath: string) => void;
 }) {
+  const { t } = useTranslation('delta');
   if (rows.length === 0) return null;
   return (
     <section style={{ marginTop: '1rem' }}>
@@ -79,9 +71,9 @@ function SymbolTable({
       <table className="data-table">
         <thead>
           <tr>
-            <th>Kind</th>
-            <th>Name</th>
-            <th>File</th>
+            <th>{t('kind')}</th>
+            <th>{t('name')}</th>
+            <th>{t('file')}</th>
           </tr>
         </thead>
         <tbody>
@@ -94,8 +86,8 @@ function SymbolTable({
           ))}
         </tbody>
       </table>
-      {rows.length > 100 && <p className="hint">Showing 100 of {rows.length}</p>}
-      <p className="hint">Symbol click opens file-level diff (symbol-to-hunk mapping planned).</p>
+      {rows.length > 100 && <p className="hint">{t('showingOf', { count: rows.length })}</p>}
+      <p className="hint">{t('symbolClickHint')}</p>
     </section>
   );
 }
@@ -113,17 +105,18 @@ function DiffModal({
   error: string | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('delta');
   if (!open) return null;
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>File diff</h3>
+          <h3>{t('fileDiff')}</h3>
           <Button variant="ghost" size="sm" onClick={onClose}>
-            Close
+            {t('close')}
           </Button>
         </div>
-        {loading && <p className="hint">Loading diff…</p>}
+        {loading && <p className="hint">{t('loadingDiff')}</p>}
         {error && <Alert variant="error">{error}</Alert>}
         {data && !loading && (
           <>
@@ -154,6 +147,7 @@ function DiffModal({
 }
 
 export default function DeltaViewPage() {
+  const { t } = useTranslation(['delta', 'common']);
   const { repoId } = useParams<{ repoId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -210,12 +204,12 @@ export default function DeltaViewPage() {
         setPanoramaFocusStack([]);
       } catch (err) {
         setResult(null);
-        setError(err instanceof Error ? err.message : 'Compare failed');
+        setError(err instanceof Error ? err.message : t('common:errors.compareFailed'));
       } finally {
         setLoading(false);
       }
     },
-    [repoId],
+    [repoId, t],
   );
 
   const runCompare = useCallback(() => {
@@ -262,12 +256,12 @@ export default function DeltaViewPage() {
         setPanorama(data);
       } catch (err) {
         setPanorama(null);
-        setPanoramaError(err instanceof Error ? err.message : 'Panorama failed');
+        setPanoramaError(err instanceof Error ? err.message : t('common:errors.panoramaFailed'));
       } finally {
         setPanoramaLoading(false);
       }
     },
-    [repoId, base, head, panoramaRoot],
+    [repoId, base, head, panoramaRoot, t],
   );
 
   useEffect(() => {
@@ -334,7 +328,7 @@ export default function DeltaViewPage() {
       const data = await api.getFileDiff(repoId, base, head, filePath);
       setDiffData(data);
     } catch (err) {
-      setDiffError(err instanceof Error ? err.message : 'Failed to load file diff');
+      setDiffError(err instanceof Error ? err.message : t('common:errors.fileDiffFailed'));
     } finally {
       setDiffLoading(false);
     }
@@ -362,25 +356,25 @@ export default function DeltaViewPage() {
     <div className="page">
       {fromTrace && repoId && (
         <Link to={`/repos/${repoId}/trace`} className="back-link">
-          ← Back to Trace results
+          {t('backToTrace')}
         </Link>
       )}
 
       <PageHeader
-        title="Delta View"
-        description="Commit-to-commit structural review: change scope, risk level, and review priority. Base = before, Head = after."
+        title={t('title')}
+        description={t('description')}
       />
 
       {repo && (
         <p className="hint" style={{ marginBottom: '1rem' }}>
-          Repository: <strong>{repo.input}</strong>
+          {t('repository')} <strong>{repo.input}</strong>
         </p>
       )}
 
       <div className="delta-toolbar">
-        <FormField label="Base (before / older)">
+        <FormField label={t('baseLabel')}>
           <Select value={base} onChange={(e) => setBase(e.target.value)}>
-            <option value="">Select commit…</option>
+            <option value="">{t('selectCommit')}</option>
             {baseOptions.map((c) => (
               <option key={c.hash} value={c.hash}>
                 {c.shortHash} — {c.message.slice(0, 60)}
@@ -388,9 +382,9 @@ export default function DeltaViewPage() {
             ))}
           </Select>
         </FormField>
-        <FormField label="Head (after / newer)">
+        <FormField label={t('headLabel')}>
           <Select value={head} onChange={(e) => setHead(e.target.value)}>
-            <option value="">Select commit…</option>
+            <option value="">{t('selectCommit')}</option>
             {headOptions.map((c) => (
               <option key={c.hash} value={c.hash}>
                 {c.shortHash} — {c.message.slice(0, 60)}
@@ -399,15 +393,12 @@ export default function DeltaViewPage() {
           </Select>
         </FormField>
         <Button variant="primary" onClick={runCompare} disabled={loading || !base || !head}>
-          {loading ? 'Comparing…' : 'Compare'}
+          {loading ? t('comparing') : t('compare')}
         </Button>
       </div>
 
       {loading && (
-        <p className="hint">
-          Comparing structure… the first compare of a commit builds its structural snapshot, which can take a
-          minute or two on large repositories. Subsequent compares reuse the cache.
-        </p>
+        <p className="hint">{t('comparingHint')}</p>
       )}
 
       {error && <Alert variant="error">{error}</Alert>}
@@ -422,20 +413,20 @@ export default function DeltaViewPage() {
           </ul>
           <div className="summary-grid">
             <div>
-              <h3>Main areas</h3>
+              <h3>{t('mainAreas')}</h3>
               <ul className="file-list">
                 {result.deltaSummary.mainAreas.map((a) => (
                   <li key={a.name}>
-                    <strong>{a.name}</strong> — {a.changedSymbols} symbols
+                    <strong>{a.name}</strong> — {t('symbolsCount', { count: a.changedSymbols })}
                     {a.riskTags.length > 0 && <span className="hint"> ({a.riskTags.join(', ')})</span>}
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <h3>Risks</h3>
+              <h3>{t('risks')}</h3>
               <ul className="file-list">
-                {result.deltaSummary.risks.length === 0 && <li className="hint">No risk tags detected</li>}
+                {result.deltaSummary.risks.length === 0 && <li className="hint">{t('noRisks')}</li>}
                 {result.deltaSummary.risks.map((r) => (
                   <li key={r.tag}>
                     <strong>{r.tag}</strong>: {r.reason}
@@ -444,7 +435,7 @@ export default function DeltaViewPage() {
               </ul>
             </div>
             <div>
-              <h3>Suggested review order</h3>
+              <h3>{t('reviewOrder')}</h3>
               <ul className="file-list">
                 {result.deltaSummary.reviewOrder.map((item) => (
                   <li key={item.file}>
@@ -463,10 +454,10 @@ export default function DeltaViewPage() {
 
       {result?.impact && (
         <Card>
-          <CardHeader title="Impact" />
+          <CardHeader title={t('impact')} />
           <div className="impact-hero">
             <p className="impact-score">{result.impact.score}</p>
-            <Badge variant={impactBadgeVariant(severity)}>{severity} impact</Badge>
+            <Badge variant={impactBadgeVariant(severity)}>{t('impactBadge', { severity })}</Badge>
           </div>
           <p className="hint">{result.impact.explanation?.summary}</p>
           {result.impact.explanation?.reasons && (
@@ -479,11 +470,11 @@ export default function DeltaViewPage() {
           {result.impact.explanation?.topContributors &&
             result.impact.explanation.topContributors.length > 0 && (
               <>
-                <h3>Main contributors</h3>
+                <h3>{t('mainContributors')}</h3>
                 <div className="chip-row">
                   {result.impact.explanation.topContributors.slice(0, 4).map((c) => (
                     <span key={c.factor} className="chip">
-                      {contributorLabel(c.factor as ContributorFactor)}: {c.value}
+                      {t(CONTRIBUTOR_KEYS[c.factor as ContributorFactor] ?? c.factor)}: {c.value}
                     </span>
                   ))}
                 </div>
@@ -495,14 +486,14 @@ export default function DeltaViewPage() {
       {result && (
         <Card>
           <div className="segmented">
-            {visibleTabs.map((t) => (
+            {visibleTabs.map((tabId) => (
               <button
-                key={t}
+                key={tabId}
                 type="button"
-                className={tab === t ? 'active' : ''}
-                onClick={() => setTab(t)}
+                className={tab === tabId ? 'active' : ''}
+                onClick={() => setTab(tabId)}
               >
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {t(`tabs.${tabId}`)}
               </button>
             ))}
           </div>
@@ -522,11 +513,11 @@ export default function DeltaViewPage() {
 
           {tab === 'symbols' && (
             <>
-              <SymbolTable title="Added" rows={result.graphDiff.addedNodes} onOpenFile={openFileDiff} />
-              <SymbolTable title="Removed" rows={result.graphDiff.removedNodes} onOpenFile={openFileDiff} />
+              <SymbolTable title={t('added')} rows={result.graphDiff.addedNodes} onOpenFile={openFileDiff} />
+              <SymbolTable title={t('removed')} rows={result.graphDiff.removedNodes} onOpenFile={openFileDiff} />
               {result.graphDiff.modifiedNodes.length > 0 && (
                 <section style={{ marginTop: '1rem' }}>
-                  <h3>Modified ({result.graphDiff.modifiedNodes.length})</h3>
+                  <h3>{t('modified')} ({result.graphDiff.modifiedNodes.length})</h3>
                   <ul className="file-list">
                     {result.graphDiff.modifiedNodes.slice(0, 80).map((m) => (
                       <li key={m.after.id}>
@@ -544,7 +535,7 @@ export default function DeltaViewPage() {
 
           {tab === 'edges' && (
             <section>
-              <h3>Edge changes</h3>
+              <h3>{t('edgeChanges')}</h3>
               <p className="hint">
                 +{result.graphDiff.addedEdges.length} / −{result.graphDiff.removedEdges.length}
               </p>
@@ -565,21 +556,21 @@ export default function DeltaViewPage() {
 
           {tab === 'metrics' && (
             <dl className="meta-grid">
-              <dt>Changed files</dt>
+              <dt>{t('metrics.changedFiles')}</dt>
               <dd>{result.graphDiff.changedFiles.length}</dd>
-              <dt>Changed symbols</dt>
+              <dt>{t('metrics.changedSymbols')}</dt>
               <dd>{changedSymbols}</dd>
-              <dt>Edge changes</dt>
+              <dt>{t('metrics.edgeChanges')}</dt>
               <dd>{result.graphDiff.summary.edgesAdded + result.graphDiff.summary.edgesRemoved}</dd>
-              <dt>Affected nodes</dt>
+              <dt>{t('metrics.affectedNodes')}</dt>
               <dd>{result.graphDiff.affectedNodeIds.length}</dd>
-              <dt>Base extraction</dt>
+              <dt>{t('metrics.baseExtraction')}</dt>
               <dd>
-                {result.baseMeta.extractionMethod} ({result.baseMeta.nodeCount} nodes)
+                {result.baseMeta.extractionMethod} ({t('metrics.nodes', { count: result.baseMeta.nodeCount })})
               </dd>
-              <dt>Head extraction</dt>
+              <dt>{t('metrics.headExtraction')}</dt>
               <dd>
-                {result.headMeta.extractionMethod} ({result.headMeta.nodeCount} nodes)
+                {result.headMeta.extractionMethod} ({t('metrics.nodes', { count: result.headMeta.nodeCount })})
               </dd>
             </dl>
           )}
@@ -587,13 +578,13 @@ export default function DeltaViewPage() {
           {tab === 'graph' && (
             <>
               <p className="hint" style={{ marginBottom: '0.75rem' }}>
-                Structural diff overlay on the head commit&apos;s call tree. For a single-commit map without diff coloring,{' '}
+                {t('graphHintBefore')}{' '}
                 {repoId && head ? (
-                  <Link to={`/repos/${repoId}/panorama?commit=${head}&from=delta`}>open full Panorama</Link>
+                  <Link to={`/repos/${repoId}/panorama?commit=${head}&from=delta`}>{t('openFullPanorama')}</Link>
                 ) : (
-                  'open Panorama'
+                  t('openFullPanorama')
                 )}
-                .
+                {t('graphHintAfter')}
               </p>
               <PanoramaGraphView
                 graph={panorama}
@@ -623,8 +614,8 @@ export default function DeltaViewPage() {
 
       {!result && !loading && !error && (
         <p className="hint">
-          Select base and head commits, or open from{' '}
-          <Link to={`/repos/${repoId}/timeline`}>Commit Timeline</Link>.
+          {t('emptyHint')}{' '}
+          <Link to={`/repos/${repoId}/timeline`}>{t('commitTimeline')}</Link>.
         </p>
       )}
 

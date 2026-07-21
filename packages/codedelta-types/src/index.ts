@@ -583,6 +583,8 @@ export interface WikiAskRequest {
   commit: string;
   question: string;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  /** UI locale for the answer language (`en` | `zh-Hans`). */
+  locale?: string;
 }
 
 export type WikiEvidenceKind = 'symbol' | 'call-path' | 'file' | 'source';

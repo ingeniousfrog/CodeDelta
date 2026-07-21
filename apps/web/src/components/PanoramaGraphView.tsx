@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { downloadPanoramaPng, downloadPanoramaSvg } from '../lib/panorama-export';
 import type { PanoramaFocusCrumb } from '../lib/panorama-focus';
@@ -51,36 +52,6 @@ function fileBaseName(filePath: string): string {
   return parts[parts.length - 1] ?? filePath;
 }
 
-function kindLabel(kind: string): string {
-  switch (kind) {
-    case 'route':
-      return 'Route / entry';
-    case 'component':
-      return 'Component';
-    case 'function':
-      return 'Function';
-    case 'method':
-      return 'Method';
-    case 'class':
-      return 'Class';
-    default:
-      return kind.replace(/_/g, ' ');
-  }
-}
-
-function roleLabel(role?: PanoramaNode['role']): string | null {
-  switch (role) {
-    case 'entry':
-      return 'Entry point';
-    case 'bridge':
-      return 'In call chain';
-    case 'leaf':
-      return 'Leaf callee';
-    default:
-      return null;
-  }
-}
-
 function kindAccentClass(kind: string): string {
   if (kind === 'route') return 'panorama-node--kind-route';
   if (kind === 'component') return 'panorama-node--kind-component';
@@ -108,10 +79,11 @@ function PanoramaFocusBreadcrumb({
   trail: PanoramaFocusCrumb[];
   onSelect?: (index: number) => void;
 }) {
+  const { t } = useTranslation('panorama');
   if (trail.length <= 1) return null;
 
   return (
-    <nav className="panorama-breadcrumb" aria-label="Focus path">
+    <nav className="panorama-breadcrumb" aria-label={t('focusPath')}>
       <ol className="panorama-breadcrumb-list">
         {trail.map((crumb, index) => {
           const isLast = index === trail.length - 1;
@@ -141,11 +113,24 @@ function PanoramaFocusBreadcrumb({
 }
 
 const PanoramaFlowNode = memo(function PanoramaFlowNode({ data }: NodeProps<Node<PanoramaFlowData>>) {
+  const { t } = useTranslation('panorama');
   const n = data.panorama;
   const fileName = fileBaseName(n.filePath);
   const lineRange =
     n.startLine === n.endLine ? `L${n.startLine}` : `L${n.startLine}–L${n.endLine}`;
-  const role = roleLabel(n.role);
+  const kindDisplay = (() => {
+    switch (n.kind) {
+      case 'route':
+      case 'component':
+      case 'function':
+      case 'method':
+      case 'class':
+        return t(`kinds.${n.kind}`);
+      default:
+        return n.kind.replace(/_/g, ' ');
+    }
+  })();
+  const role = n.role ? t(`roles.${n.role}`) : null;
   const commitLabel = n.commitShortHash ?? '—';
   const signaturePreview = n.signature?.split('\n')[0]?.trim();
 
@@ -165,26 +150,26 @@ const PanoramaFlowNode = memo(function PanoramaFlowNode({ data }: NodeProps<Node
       <Handle type="target" position={Position.Top} className="panorama-handle" />
       <div className="panorama-node-accent" aria-hidden />
       <div className="panorama-node-top">
-        <span className="panorama-node-kind">{kindLabel(n.kind)}</span>
+        <span className="panorama-node-kind">{kindDisplay}</span>
         {role && <span className="panorama-node-role">{role}</span>}
         {n.deltaStatus && n.deltaStatus !== 'unchanged' && (
           <span className={`panorama-delta-badge panorama-delta-badge--${n.deltaStatus}`}>
-            {n.deltaStatus}
+            {t(`legend.${n.deltaStatus}`)}
           </span>
         )}
       </div>
       <div className="panorama-node-title">{n.name}</div>
       <div className="panorama-node-meta">
         <span className="panorama-node-meta-item" title={n.filePath}>
-          <span className="panorama-meta-label">File</span>
+          <span className="panorama-meta-label">{t('meta.file')}</span>
           <span className="panorama-meta-value">{fileName}</span>
         </span>
         <span className="panorama-node-meta-item">
-          <span className="panorama-meta-label">Lines</span>
+          <span className="panorama-meta-label">{t('meta.lines')}</span>
           <span className="panorama-meta-value">{lineRange}</span>
         </span>
         <span className="panorama-node-meta-item">
-          <span className="panorama-meta-label">Commit</span>
+          <span className="panorama-meta-label">{t('meta.commit')}</span>
           <span className="panorama-meta-value panorama-meta-mono">{commitLabel}</span>
         </span>
       </div>
@@ -197,7 +182,7 @@ const PanoramaFlowNode = memo(function PanoramaFlowNode({ data }: NodeProps<Node
       {n.llmLabel && <p className="panorama-node-label">{n.llmLabel}</p>}
       {data.onContinue && (
         <button type="button" className="panorama-continue-btn" onClick={data.onContinue}>
-          Expand from here
+          {t('expandFromHere')}
         </button>
       )}
       <Handle type="source" position={Position.Bottom} className="panorama-handle" />
@@ -324,6 +309,7 @@ export default function PanoramaGraphView({
   onGoToOverview,
   fullPanoramaHref,
 }: PanoramaGraphViewProps) {
+  const { t } = useTranslation('panorama');
   const [exporting, setExporting] = useState<'svg' | 'png' | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -334,11 +320,11 @@ export default function PanoramaGraphView({
     try {
       downloadPanoramaSvg(graph);
     } catch {
-      setExportError('SVG export failed.');
+      setExportError(t('svgFailed'));
     } finally {
       setExporting(null);
     }
-  }, [graph]);
+  }, [graph, t]);
 
   const exportPng = useCallback(async () => {
     if (!graph) return;
@@ -347,11 +333,11 @@ export default function PanoramaGraphView({
     try {
       await downloadPanoramaPng(graph);
     } catch {
-      setExportError('PNG export failed — try Export SVG instead.');
+      setExportError(t('pngFailed'));
     } finally {
       setExporting(null);
     }
-  }, [graph]);
+  }, [graph, t]);
 
   const hasDelta = graph?.nodes.some((n) => n.deltaStatus && n.deltaStatus !== 'unchanged');
 
@@ -369,17 +355,13 @@ export default function PanoramaGraphView({
     (sparseOverview || graph.entryCatalog.length > 6);
 
   if (loading) {
-    return <p className="hint panorama-status">Loading panorama…</p>;
+    return <p className="hint panorama-status">{t('loadingPanorama')}</p>;
   }
   if (error) {
     return <p className="hint panorama-error">{error}</p>;
   }
   if (!graph) {
-    return (
-      <p className="hint panorama-status">
-        Select a branch and commit to load the call-flow graph.
-      </p>
-    );
+    return <p className="hint panorama-status">{t('selectToLoad')}</p>;
   }
 
   return (
@@ -387,46 +369,43 @@ export default function PanoramaGraphView({
       <div className="panorama-toolbar">
         <div className="panorama-toolbar-info">
           <span className="panorama-toolbar-title">
-            {graph.commitShortHash ? `Commit ${graph.commitShortHash}` : 'Call-flow graph'}
+            {graph.commitShortHash ? t('commitTitle', { hash: graph.commitShortHash }) : t('callFlowGraph')}
           </span>
           {focusTrail && focusTrail.length > 1 && (
             <PanoramaFocusBreadcrumb trail={focusTrail} onSelect={onFocusTrailSelect} />
           )}
           <span className="hint">
-            {graph.stats.nodeCount} symbols · {graph.stats.edgeCount} edges · depth-limited tree
+            {t('stats', { nodes: graph.stats.nodeCount, edges: graph.stats.edgeCount })}
             {graph.stats.snapshotNodeCount
-              ? ` · ${graph.stats.snapshotNodeCount.toLocaleString()} indexed`
+              ? t('indexed', { count: graph.stats.snapshotNodeCount.toLocaleString() })
               : ''}
-            {graph.stats.truncated ? ' · truncated — expand a node to go deeper' : ''}
+            {graph.stats.truncated ? t('truncated') : ''}
             {graph.stats.effectiveDepth && graph.stats.effectiveDepth > 3
-              ? ` · depth ${graph.stats.effectiveDepth} (large repo boost)`
+              ? t('depthBoostStats', { depth: graph.stats.effectiveDepth })
               : ''}
           </span>
           {sparseOverview && (
-            <span className="hint panorama-overview-hint">
-              Overview shows top entry routes and components — pick an entry below or click{' '}
-              <em>Expand from here</em> on a route or mount point to open its call tree.
-            </span>
+            <span className="hint panorama-overview-hint">{t('sparseOverview')}</span>
           )}
         </div>
         {graph.extractionMethod === 'fallback' && (
-          <span className="panorama-warn">Fallback extractor — call edges may be sparse</span>
+          <span className="panorama-warn">{t('fallbackWarn')}</span>
         )}
         {graph.pathMessage && <span className="panorama-warn">{graph.pathMessage}</span>}
         <div className="panorama-toolbar-actions">
           {canGoBack && onGoBack && (
             <Button variant="secondary" size="sm" onClick={onGoBack}>
-              ← Back
+              {t('back')}
             </Button>
           )}
           {canGoToOverview && onGoToOverview && (
             <Button variant="secondary" size="sm" onClick={onGoToOverview}>
-              All entry points
+              {t('allEntries')}
             </Button>
           )}
           {fullPanoramaHref && (
             <Link to={fullPanoramaHref} className="btn btn-secondary btn-sm">
-              Open full Panorama
+              {t('openFull')}
             </Link>
           )}
           {onEnrich && graph.nodes.length > 0 && (
@@ -436,16 +415,16 @@ export default function PanoramaGraphView({
               disabled={enriching}
               onClick={() => onEnrich(graph.nodes.slice(0, 20).map((n) => n.id))}
             >
-              {enriching ? 'Generating labels…' : 'Generate labels (LLM)'}
+              {enriching ? t('generatingLabels') : t('generateLabels')}
             </Button>
           )}
           {graph.nodes.length > 0 && (
             <>
               <Button variant="secondary" size="sm" onClick={exportSvg} disabled={exporting !== null}>
-                {exporting === 'svg' ? 'Exporting…' : 'Export SVG'}
+                {exporting === 'svg' ? t('exporting') : t('exportSvg')}
               </Button>
               <Button variant="secondary" size="sm" onClick={exportPng} disabled={exporting !== null}>
-                {exporting === 'png' ? 'Exporting…' : 'Export PNG'}
+                {exporting === 'png' ? t('exporting') : t('exportPng')}
               </Button>
             </>
           )}
@@ -455,10 +434,8 @@ export default function PanoramaGraphView({
 
       {showEntryCatalog && (
         <div className="panorama-entry-sidebar">
-          <h4>Entry surfaces ({graph!.entryCatalog!.length})</h4>
-          <p className="hint panorama-entry-sidebar-hint">
-            Jump into a route, component, or exported handler.
-          </p>
+          <h4>{t('entrySurfaces', { count: graph!.entryCatalog!.length })}</h4>
+          <p className="hint panorama-entry-sidebar-hint">{t('entryHint')}</p>
           <ul className="panorama-entry-list">
             {graph!.entryCatalog!.map((entry) => (
               <li key={entry.id} className={entry.inGraph ? 'panorama-entry-list-item--in-graph' : ''}>
@@ -474,7 +451,7 @@ export default function PanoramaGraphView({
 
       {impactedEntryPoints && impactedEntryPoints.length > 0 && onFocusEntry && (
         <div className="panorama-entry-sidebar">
-          <h4>Impacted entry points</h4>
+          <h4>{t('impactedEntries')}</h4>
           <ul className="file-list">
             {impactedEntryPoints.map((ep) => (
               <li key={ep}>
@@ -488,9 +465,7 @@ export default function PanoramaGraphView({
       )}
 
       {graph.nodes.length === 0 ? (
-        <p className="hint panorama-status">
-          No symbols in this subgraph. Try another focus symbol or increase call depth.
-        </p>
+        <p className="hint panorama-status">{t('emptySubgraph')}</p>
       ) : (
         <ReactFlowProvider>
           <PanoramaFlowInner
@@ -503,10 +478,10 @@ export default function PanoramaGraphView({
 
       {(showDeltaLegend || hasDelta) && (
         <div className="panorama-legend">
-          <span className="panorama-legend-item panorama-legend-added">Added</span>
-          <span className="panorama-legend-item panorama-legend-modified">Modified</span>
-          <span className="panorama-legend-item panorama-legend-removed">Removed</span>
-          <span className="panorama-legend-item panorama-legend-heuristic">Heuristic edge</span>
+          <span className="panorama-legend-item panorama-legend-added">{t('legend.added')}</span>
+          <span className="panorama-legend-item panorama-legend-modified">{t('legend.modified')}</span>
+          <span className="panorama-legend-item panorama-legend-removed">{t('legend.removed')}</span>
+          <span className="panorama-legend-item panorama-legend-heuristic">{t('legend.heuristic')}</span>
         </div>
       )}
     </div>

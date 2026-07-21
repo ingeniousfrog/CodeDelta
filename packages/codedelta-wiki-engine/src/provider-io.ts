@@ -1,5 +1,6 @@
 import type { WikiEvidenceItem, WikiSectionKind } from '@codedelta/types';
 import type { WikiSectionContext } from './page';
+import { DEFAULT_WIKI_LOCALE, wikiCopy, type WikiLocale } from './locale';
 
 /** Pull a JSON object from raw model text (handles ```json fences). */
 export function extractJsonObject(raw: string): unknown | null {
@@ -34,11 +35,12 @@ function filterCitationIds(ids: unknown, allowed: Set<string>): string[] {
 // Wiki page narrative
 // ---------------------------------------------------------------------------
 
-export function buildWikiPageSystemPrompt(): string {
+export function buildWikiPageSystemPrompt(locale: WikiLocale = DEFAULT_WIKI_LOCALE): string {
   return [
     'You write a developer wiki page for one area of a codebase, for CodeDelta Wiki.',
     'Use ONLY the symbols, files, signatures, and source snippets provided in the user message.',
     'Never invent APIs, files, symbols, or behavior that is not visible in the input.',
+    wikiCopy(locale).languageInstruction,
     'Return strict JSON only (no markdown fences), matching this schema:',
     '{',
     '  "narrative": string,   // markdown body: what this area does, how its pieces fit together',
@@ -110,11 +112,12 @@ export function validateWikiPageOutput(
 // Ask
 // ---------------------------------------------------------------------------
 
-export function buildWikiAskSystemPrompt(): string {
+export function buildWikiAskSystemPrompt(locale: WikiLocale = DEFAULT_WIKI_LOCALE): string {
   return [
     'You answer questions about a codebase for CodeDelta Wiki, grounded in structural evidence.',
     'Use ONLY the evidence items (symbols, call paths, source snippets, repository overview) provided in the user message.',
     'Never invent files, symbols, call relationships, or behavior.',
+    wikiCopy(locale).languageInstruction,
     'For vague questions with only entry-point / overview evidence, explain what you can from that context and suggest concrete symbols or files to ask about next.',
     'Return strict JSON only (no markdown fences), matching this schema:',
     '{',
@@ -158,13 +161,17 @@ export function validateWikiAskOutput(
 }
 
 /** Human-readable section kind label (used in deterministic answers). */
-export function sectionKindLabel(kind: WikiSectionKind): string {
+export function sectionKindLabel(
+  kind: WikiSectionKind,
+  locale: WikiLocale = DEFAULT_WIKI_LOCALE,
+): string {
+  const copy = wikiCopy(locale);
   switch (kind) {
     case 'overview':
-      return 'Overview';
+      return copy.overview;
     case 'architecture':
-      return 'Architecture';
+      return copy.architecture;
     default:
-      return 'Module';
+      return copy.moduleKind;
   }
 }

@@ -1,4 +1,5 @@
 import type { CodeGraphSnapshot, CodeNode, WikiSection, WikiToc } from '@codedelta/types';
+import { DEFAULT_WIKI_LOCALE, wikiCopy, type WikiLocale } from './locale';
 
 /** Bump when generated wiki structure/content format changes (busts the cache). */
 export const WIKI_VERSION = '1';
@@ -64,6 +65,8 @@ export interface PlanWikiTocOptions {
   maxModuleSections?: number;
   /** Per-section file list cap (TOC payload size guard). */
   maxFilesPerSection?: number;
+  /** Locale for fixed section titles (Overview / Architecture / …). */
+  locale?: WikiLocale;
 }
 
 function defaultMaxModuleSections(fileCount: number): number {
@@ -83,6 +86,7 @@ export function planWikiToc(
   const maxModuleSections =
     options.maxModuleSections ?? defaultMaxModuleSections(snapshot.files.length);
   const maxFilesPerSection = options.maxFilesPerSection ?? 500;
+  const copy = wikiCopy(options.locale ?? DEFAULT_WIKI_LOCALE);
 
   const symbolsPerFile = new Map<string, number>();
   for (const node of snapshot.nodes) {
@@ -111,14 +115,14 @@ export function planWikiToc(
   const sections: WikiSection[] = [
     {
       id: 'overview',
-      title: 'Overview',
+      title: copy.overview,
       kind: 'overview',
       files: snapshot.files.slice(0, maxFilesPerSection),
       symbolCount: totalSymbols,
     },
     {
       id: 'architecture',
-      title: 'Architecture',
+      title: copy.architecture,
       kind: 'architecture',
       files: [],
       symbolCount: totalSymbols,
@@ -132,7 +136,7 @@ export function planWikiToc(
     usedIds.add(id);
     sections.push({
       id,
-      title: area,
+      title: area === '(root)' ? copy.rootArea : area,
       kind: 'module',
       area,
       files: bucket.files.slice(0, maxFilesPerSection),
@@ -144,7 +148,7 @@ export function planWikiToc(
     const files = rest.flatMap(([, bucket]) => bucket.files).slice(0, maxFilesPerSection);
     sections.push({
       id: 'module-other',
-      title: 'Other areas',
+      title: copy.otherAreas,
       kind: 'module',
       area: undefined,
       files,

@@ -1,0 +1,18 @@
+{
+  "title": "导入仓库",
+  "description": "导入公开 GitHub 仓库，或打开本机 git 路径。提交列表会立即显示；结构快照在对比或 Trace 时按需构建。",
+  "recentTitle": "最近仓库",
+  "recentDesc": "曾在此数据目录导入过的仓库。",
+  "githubTitle": "GitHub 地址",
+  "githubDesc": "当前版本仅支持公开仓库。",
+  "repoLabel": "仓库",
+  "githubPlaceholder": "https://github.com/owner/repo 或 owner/repo",
+  "importing": "导入中…",
+  "importGithub": "从 GitHub 导入",
+  "localTitle": "本地路径",
+  "localDesc": "本机 git 仓库的绝对路径。",
+  "pathLabel": "路径",
+  "localPlaceholder": "/Users/you/projects/my-repo",
+  "opening": "打开中…",
+  "openLocal": "打开本地仓库"
+}

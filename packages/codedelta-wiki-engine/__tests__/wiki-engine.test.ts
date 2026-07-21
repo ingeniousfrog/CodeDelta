@@ -109,6 +109,12 @@ describe('planWikiToc', () => {
     expect(toc.sections[1]).toMatchObject({ id: 'architecture', kind: 'architecture' });
   });
 
+  it('localizes fixed section titles for zh-Hans', () => {
+    const toc = planWikiToc(makeSnapshot(), { locale: 'zh-Hans' });
+    expect(toc.sections[0]?.title).toBe('概览');
+    expect(toc.sections[1]?.title).toBe('架构');
+  });
+
   it('creates module sections grouped by directory area', () => {
     const toc = planWikiToc(makeSnapshot());
     const moduleSections = toc.sections.filter((s) => s.kind === 'module');

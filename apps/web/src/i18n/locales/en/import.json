@@ -1,0 +1,18 @@
+{
+  "title": "Import Repository",
+  "description": "Import a public GitHub repository or open a local git path. Commits are listed immediately; structural snapshots are built lazily when you compare or trace.",
+  "recentTitle": "Recent repositories",
+  "recentDesc": "Previously imported in this data directory.",
+  "githubTitle": "GitHub URL",
+  "githubDesc": "Public repositories only in this version.",
+  "repoLabel": "Repository",
+  "githubPlaceholder": "https://github.com/owner/repo or owner/repo",
+  "importing": "Importing…",
+  "importGithub": "Import from GitHub",
+  "localTitle": "Local path",
+  "localDesc": "Absolute path to a git repository on this machine.",
+  "pathLabel": "Path",
+  "localPlaceholder": "/Users/you/projects/my-repo",
+  "opening": "Opening…",
+  "openLocal": "Open local repository"
+}

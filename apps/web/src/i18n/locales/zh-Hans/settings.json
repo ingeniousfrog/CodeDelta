@@ -1,0 +1,54 @@
+{
+  "general": {
+    "title": "通用",
+    "description": "界面语言及其他偏好。",
+    "language": "语言",
+    "languageHint": "默认为英文。选择中文后，标题、导航与页面文案将切换为中文。",
+    "en": "EN",
+    "zh": "中文"
+  },
+  "provider": {
+    "title": "模型提供方",
+    "description": "为 Trace 视图可选配置语言模型。确定性分析始终会运行；模型输出不作为权威结论。",
+    "saved": "设置已保存。",
+    "providerCardTitle": "提供方",
+    "providerCardDesc": "选择 Trace 视图如何调用模型。",
+    "unimplemented": "该提供方尚未实现。请选择「无 AI」、Codex OAuth 或 OpenAI。",
+    "checkingCodex": "正在检查本地 Codex 配置…",
+    "configDirectory": "配置目录：",
+    "codexLoginStatus": "Codex 登录状态",
+    "model": "模型",
+    "modelHint": "留空则使用 ~/.codex/config.toml 中的模型",
+    "codexLoginHint": "在终端运行 codex login；CodeDelta 不会存储 API 密钥。",
+    "apiCredentials": "API 凭证",
+    "apiKey": "API 密钥",
+    "baseUrl": "Base URL",
+    "save": "保存设置",
+    "kinds": {
+      "none": {
+        "label": "无 AI",
+        "description": "仅确定性 Trace 候选与证据；不调用模型。"
+      },
+      "codex-oauth": {
+        "label": "Codex OAuth",
+        "description": "复用本地 Codex CLI 登录（~/.codex/auth.json）。请先运行 codex login。"
+      },
+      "openai": {
+        "label": "OpenAI API 密钥",
+        "description": "直接调用 OpenAI chat/completions API。"
+      },
+      "openai-compatible": {
+        "label": "OpenAI 兼容",
+        "description": "自定义兼容 OpenAI API 的端点。"
+      },
+      "anthropic": {
+        "label": "Anthropic",
+        "description": "尚未实现。"
+      },
+      "ollama": {
+        "label": "Ollama",
+        "description": "尚未实现。"
+      }
+    }
+  }
+}

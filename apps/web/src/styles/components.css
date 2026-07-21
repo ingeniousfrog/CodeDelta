@@ -279,6 +279,33 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+.locale-capsule {
+  display: inline-flex;
+  padding: 3px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  gap: 2px;
+}
+
+.locale-capsule button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 4.5rem;
+}
+
+.locale-capsule button.active {
+  background: var(--bg-surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
 .segmented {
   display: inline-flex;
   padding: 3px;

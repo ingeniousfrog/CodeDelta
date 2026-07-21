@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router-dom';
 import {
   api,
@@ -11,13 +12,7 @@ import {
 } from '../api/client';
 import { Alert, Badge, Button, Card, CardHeader, FormField, Mono, PageHeader, Select, TextInput } from '../components/ui';
 
-const FORMAT_OPTIONS: Array<{ value: TrainingExportFormat; label: string }> = [
-  { value: 'canonical', label: 'Canonical JSONL' },
-  { value: 'alpaca', label: 'Alpaca SFT' },
-  { value: 'sharegpt', label: 'ShareGPT SFT' },
-  { value: 'dpo', label: 'DPO' },
-  { value: 'rl', label: 'RL manifest' },
-];
+const FORMAT_VALUES: TrainingExportFormat[] = ['canonical', 'alpaca', 'sharegpt', 'dpo', 'rl'];
 
 const DEFAULT_FORMATS: Record<TrainingExportFormat, boolean> = {
   canonical: true,
@@ -27,8 +22,15 @@ const DEFAULT_FORMATS: Record<TrainingExportFormat, boolean> = {
   rl: false,
 };
 
+const STEP_I18N_KEYS: Record<string, 'steps.starting' | 'steps.ready' | 'steps.failed' | 'steps.idle'> = {
+  'Starting export': 'steps.starting',
+  Ready: 'steps.ready',
+  Failed: 'steps.failed',
+  Idle: 'steps.idle',
+};
+
 function selectedFormats(formats: Record<TrainingExportFormat, boolean>): TrainingExportFormat[] {
-  const selected = FORMAT_OPTIONS.filter((option) => formats[option.value]).map((option) => option.value);
+  const selected = FORMAT_VALUES.filter((value) => formats[value]);
   return selected.length ? selected : ['canonical'];
 }
 
@@ -51,6 +53,7 @@ function olderThan(commits: CommitInfo[], hash: string): CommitInfo[] {
 }
 
 export default function TrainingDataPage() {
+  const { t } = useTranslation(['training', 'common']);
   const { repoId } = useParams<{ repoId: string }>();
   const [repo, setRepo] = useState<RepoRef | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
@@ -73,6 +76,14 @@ export default function TrainingDataPage() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const translateStep = useCallback(
+    (step: string) => {
+      const key = STEP_I18N_KEYS[step];
+      return key ? t(key) : step;
+    },
+    [t],
+  );
 
   const loadCommits = useCallback(async (id: string, selectedBranch: string) => {
     const list = await api.listCommits(id, selectedBranch, 100);
@@ -118,7 +129,9 @@ export default function TrainingDataPage() {
         setBranch(initialBranch);
         await loadCommits(repoId!, initialBranch);
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load training data page');
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : t('errors.loadPage'));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -127,16 +140,16 @@ export default function TrainingDataPage() {
     return () => {
       cancelled = true;
     };
-  }, [repoId, loadCommits]);
+  }, [repoId, loadCommits, t]);
 
   useEffect(() => {
     if (!repoId || !branch || loading) return;
     setBase('');
     setHead('');
     loadCommits(repoId, branch).catch((err) => {
-      setError(err instanceof Error ? err.message : 'Failed to load commits');
+      setError(err instanceof Error ? err.message : t('errors.loadCommits'));
     });
-  }, [repoId, branch, loading, loadCommits]);
+  }, [repoId, branch, loading, loadCommits, t]);
 
   useEffect(() => {
     if (!repoId || !exportId || status?.state === 'ready' || status?.state === 'error') return;
@@ -147,15 +160,15 @@ export default function TrainingDataPage() {
         if (next.state === 'ready') setRunning(false);
         if (next.state === 'error') {
           setRunning(false);
-          setError(next.error ?? 'Training export failed');
+          setError(next.error ?? t('errors.exportFailed'));
         }
       } catch (err) {
         setRunning(false);
-        setError(err instanceof Error ? err.message : 'Failed to poll export status');
+        setError(err instanceof Error ? err.message : t('errors.pollFailed'));
       }
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [repoId, exportId, status?.state]);
+  }, [repoId, exportId, status?.state, t]);
 
   useEffect(() => {
     if (!repoId || !exportId || status?.state !== 'ready') return;
@@ -169,11 +182,11 @@ export default function TrainingDataPage() {
         if (!cancelled) setCanonicalText(text);
       }
     }
-    loadArtifacts().catch((err) => setError(err instanceof Error ? err.message : 'Failed to load artifacts'));
+    loadArtifacts().catch((err) => setError(err instanceof Error ? err.message : t('errors.loadArtifacts')));
     return () => {
       cancelled = true;
     };
-  }, [repoId, exportId, status?.state]);
+  }, [repoId, exportId, status?.state, t]);
 
   async function startExport() {
     if (!repoId) return;
@@ -208,7 +221,7 @@ export default function TrainingDataPage() {
       });
     } catch (err) {
       setRunning(false);
-      setError(err instanceof Error ? err.message : 'Failed to start export');
+      setError(err instanceof Error ? err.message : t('errors.startFailed'));
     }
   }
 
@@ -217,11 +230,29 @@ export default function TrainingDataPage() {
       await navigator.clipboard.writeText(canonicalText);
       setCopied(true);
     } catch {
-      setError('Clipboard copy failed');
+      setError(t('errors.clipboard'));
     }
   }
 
-  if (loading) return <div className="page"><p className="hint">Loading…</p></div>;
+  const jsonlPreviewText = useMemo(() => {
+    if (canonicalText) return canonicalText;
+    if (status?.state === 'generating') return t('preview.generating');
+    if (status?.state === 'ready' && artifacts.length === 0) return t('preview.loadingArtifacts');
+    const hasCanonicalArtifact = artifacts.some((artifact) => artifact.format === 'canonical');
+    if (status?.state === 'ready' && artifacts.length > 0 && !hasCanonicalArtifact) {
+      return t('preview.noCanonicalSelected');
+    }
+    if (status?.state === 'ready') return t('preview.noRows');
+    return t('preview.startHint');
+  }, [canonicalText, status?.state, artifacts, t]);
+
+  if (loading) {
+    return (
+      <div className="page">
+        <p className="hint">{t('common:loading')}</p>
+      </div>
+    );
+  }
   if (error && !repo) return <div className="page"><Alert variant="error">{error}</Alert></div>;
   if (!repo || !repoId) return null;
 
@@ -229,8 +260,8 @@ export default function TrainingDataPage() {
   const progress =
     status?.totalIntervals != null && status.completedIntervals != null
       ? `${status.completedIntervals}/${status.totalIntervals}`
-      : status?.state ?? 'idle';
-  const currentStep =
+      : status?.state ?? t('idle');
+  const rawStep =
     status?.currentStep ??
     (status?.state === 'ready'
       ? 'Ready'
@@ -239,18 +270,7 @@ export default function TrainingDataPage() {
         : running
           ? 'Starting export'
           : 'Idle');
-  const hasCanonicalArtifact = artifacts.some((artifact) => artifact.format === 'canonical');
-  const jsonlPreviewText =
-    canonicalText ||
-    (status?.state === 'generating'
-      ? 'Canonical JSONL will appear here once the export writes artifacts.'
-      : status?.state === 'ready' && artifacts.length === 0
-        ? 'Loading export artifacts...'
-      : status?.state === 'ready' && artifacts.length > 0 && !hasCanonicalArtifact
-        ? 'Canonical JSONL was not selected for this export.'
-        : status?.state === 'ready'
-          ? 'No canonical JSONL rows generated.'
-          : 'Start an export to preview canonical JSONL here.');
+  const currentStep = translateStep(rawStep);
   const jsonlPreviewClassName = canonicalText
     ? 'training-jsonl-box'
     : 'training-jsonl-box training-jsonl-box--empty';
@@ -259,25 +279,25 @@ export default function TrainingDataPage() {
 
   return (
     <div className="page">
-      <PageHeader title="Training Data" description={`${repo.input} · ${repo.source}`} />
+      <PageHeader title={t('title')} description={`${repo.input} · ${repo.source}`} />
 
       {error && <Alert variant="error">{error}</Alert>}
-      {copied && <Alert variant="success">Canonical JSONL copied.</Alert>}
+      {copied && <Alert variant="success">{t('copied')}</Alert>}
 
       <div className="split-layout">
         <div>
           <Card>
-            <CardHeader title="Source" />
+            <CardHeader title={t('source')} />
             <div className="training-mode-row">
               <Button variant={mode === 'range' ? 'primary' : 'secondary'} size="sm" onClick={() => setMode('range')}>
-                Range
+                {t('range')}
               </Button>
               <Button variant={mode === 'history' ? 'primary' : 'secondary'} size="sm" onClick={() => setMode('history')}>
-                History
+                {t('history')}
               </Button>
             </div>
 
-            <FormField label="Branch">
+            <FormField label={t('branch')}>
               <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
                 {branches.map((b) => (
                   <option key={b} value={b}>{b}</option>
@@ -287,7 +307,7 @@ export default function TrainingDataPage() {
 
             {mode === 'range' && (
               <div className="training-range-grid">
-                <FormField label="Before">
+                <FormField label={t('before')}>
                   <Select value={base} onChange={(e) => setBeforeCommit(e.target.value)}>
                     {beforeOptions.map((commit) => (
                       <option key={commit.hash} value={commit.hash}>
@@ -296,7 +316,7 @@ export default function TrainingDataPage() {
                     ))}
                   </Select>
                 </FormField>
-                <FormField label="After">
+                <FormField label={t('after')}>
                   <Select value={head} onChange={(e) => setAfterCommit(e.target.value)}>
                     {afterOptions.map((commit) => (
                       <option key={commit.hash} value={commit.hash}>
@@ -310,73 +330,73 @@ export default function TrainingDataPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Filters" />
+            <CardHeader title={t('filters')} />
             <div className="training-filter-grid">
-              <FormField label="Max changed files">
+              <FormField label={t('maxChangedFiles')}>
                 <TextInput type="number" min={1} value={maxChangedFiles} onChange={(e) => setMaxChangedFiles(Number(e.target.value))} />
               </FormField>
-              <FormField label="Max diff bytes">
+              <FormField label={t('maxDiffBytes')}>
                 <TextInput type="number" min={1} value={maxDiffBytes} onChange={(e) => setMaxDiffBytes(Number(e.target.value))} />
               </FormField>
-              <FormField label="Max unrelated modules">
+              <FormField label={t('maxUnrelatedModules')}>
                 <TextInput type="number" min={1} value={maxUnrelatedModules} onChange={(e) => setMaxUnrelatedModules(Number(e.target.value))} />
               </FormField>
             </div>
             <label className="checkbox-row">
               <input type="checkbox" checked={includeMergeCommits} onChange={(e) => setIncludeMergeCommits(e.target.checked)} />
-              Include merge commits
+              {t('includeMerge')}
             </label>
             <label className="checkbox-row">
               <input type="checkbox" checked={includeDocsOnly} onChange={(e) => setIncludeDocsOnly(e.target.checked)} />
-              Include docs-only commits
+              {t('includeDocs')}
             </label>
           </Card>
 
           <Card>
-            <CardHeader title="Formats" />
+            <CardHeader title={t('formats')} />
             <div className="training-format-grid">
-              {FORMAT_OPTIONS.map((option) => (
-                <label key={option.value} className="checkbox-row">
+              {FORMAT_VALUES.map((value) => (
+                <label key={value} className="checkbox-row">
                   <input
                     type="checkbox"
-                    checked={formats[option.value]}
-                    onChange={(e) => setFormats({ ...formats, [option.value]: e.target.checked })}
+                    checked={formats[value]}
+                    onChange={(e) => setFormats({ ...formats, [value]: e.target.checked })}
                   />
-                  {option.label}
+                  {t(`formatLabels.${value}`)}
                 </label>
               ))}
             </div>
             <Button variant="primary" disabled={!canStart || running} onClick={startExport}>
-              {running ? 'Exporting…' : 'Start export'}
+              {running ? t('exporting') : t('startExport')}
             </Button>
           </Card>
         </div>
 
         <aside className="sticky-panel">
-          <h2>Status</h2>
+          <h2>{t('status')}</h2>
           <p>
             <Badge variant={status?.state === 'ready' ? 'success' : status?.state === 'generating' ? 'accent' : 'default'}>
-              {status?.state ?? 'idle'}
+              {status?.state ?? t('idle')}
             </Badge>
           </p>
           <dl className="meta-grid">
-            <dt>Step</dt>
+            <dt>{t('step')}</dt>
             <dd className="training-status-step">{currentStep}</dd>
             {status?.currentCommit && (
               <>
-                <dt>Commit</dt>
+                <dt>{t('commit')}</dt>
                 <dd><Mono>{status.currentCommit}</Mono></dd>
               </>
             )}
-            <dt>Progress</dt>
+            <dt>{t('progress')}</dt>
             <dd>{progress}</dd>
-            <dt>Slices</dt>
+            <dt>{t('slices')}</dt>
             <dd>{status?.episodes ?? 0}</dd>
-            <dt>Skipped</dt>
+            <dt>{t('skipped')}</dt>
             <dd>{status?.skipped ?? 0}</dd>
             {exportId && (
               <>
-                <dt>Export</dt>
+                <dt>{t('export')}</dt>
                 <dd><Mono>{exportId.slice(0, 8)}</Mono></dd>
               </>
             )}
@@ -384,7 +404,7 @@ export default function TrainingDataPage() {
 
           {artifacts.length > 0 && (
             <>
-              <h3>Artifacts</h3>
+              <h3>{t('artifacts')}</h3>
               <ul className="file-list">
                 {artifacts.map((artifact) => (
                   <li key={`${artifact.format}-${artifact.path}`}>
@@ -394,7 +414,7 @@ export default function TrainingDataPage() {
                         className="btn-link training-download-link"
                         href={api.trainingExportDownloadUrl(repoId, exportId as string, artifact.format)}
                       >
-                        Download
+                        {t('download')}
                       </a>
                     )}
                   </li>
@@ -405,12 +425,12 @@ export default function TrainingDataPage() {
 
           {canonicalText && (
             <Button variant="secondary" size="sm" onClick={copyCanonical}>
-              Copy canonical JSONL
+              {t('copyCanonical')}
             </Button>
           )}
 
           <section className="training-jsonl-preview">
-            <h3>JSONL Preview</h3>
+            <h3>{t('jsonlPreview')}</h3>
             <pre className={jsonlPreviewClassName}>{jsonlPreviewText}</pre>
           </section>
         </aside>

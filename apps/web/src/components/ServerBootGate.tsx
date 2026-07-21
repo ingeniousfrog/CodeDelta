@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { Alert, Button } from './ui';
 
@@ -8,6 +9,7 @@ const MAX_ATTEMPTS = 24;
 const INITIAL_DELAY_MS = 200;
 
 export function ServerBootGate({ children }: { children: ReactNode }) {
+  const { t } = useTranslation('common');
   const [state, setState] = useState<BootState>('waiting');
   const [gitAvailable, setGitAvailable] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,9 +39,7 @@ export function ServerBootGate({ children }: { children: ReactNode }) {
       if (ok) return;
       if (tryIndex >= MAX_ATTEMPTS) {
         setState('failed');
-        setError(
-          'Cannot reach the CodeDelta API. If you use the desktop app, quit and reopen it. Otherwise run npm run dev:codedelta.',
-        );
+        setError(t('boot.unreachable'));
         return;
       }
       setAttempt(tryIndex + 1);
@@ -52,7 +52,7 @@ export function ServerBootGate({ children }: { children: ReactNode }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [poll, state]);
+  }, [poll, state, t]);
 
   async function retry() {
     setState('waiting');
@@ -61,7 +61,7 @@ export function ServerBootGate({ children }: { children: ReactNode }) {
     const ok = await poll();
     if (!ok) {
       setState('failed');
-      setError('Still cannot reach the API. Check that port 3847 is free.');
+      setError(t('boot.stillUnreachable'));
     }
   }
 
@@ -70,9 +70,9 @@ export function ServerBootGate({ children }: { children: ReactNode }) {
       <div className="boot-screen">
         <div className="boot-card">
           <h1 className="boot-title">CodeDelta</h1>
-          <p className="boot-message">Starting local services…</p>
+          <p className="boot-message">{t('boot.starting')}</p>
           <p className="boot-hint muted">
-            {attempt > 0 ? `Waiting for API (attempt ${attempt})` : 'Connecting to API'}
+            {attempt > 0 ? t('boot.waitingAttempt', { attempt }) : t('boot.connecting')}
           </p>
         </div>
       </div>
@@ -86,7 +86,7 @@ export function ServerBootGate({ children }: { children: ReactNode }) {
           <h1 className="boot-title">CodeDelta</h1>
           {error && <Alert variant="error">{error}</Alert>}
           <Button variant="primary" onClick={() => void retry()}>
-            Retry
+            {t('boot.retry')}
           </Button>
         </div>
       </div>
@@ -97,7 +97,7 @@ export function ServerBootGate({ children }: { children: ReactNode }) {
     <>
       {!gitAvailable && (
         <div className="boot-git-banner" role="status">
-          Git is not available on PATH. Import and compare require git to be installed.
+          {t('boot.gitMissing')}
         </div>
       )}
       {children}

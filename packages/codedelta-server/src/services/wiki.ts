@@ -35,8 +35,11 @@ import {
   rewriteWikiAssetUrls,
   validateWikiAskOutput,
   validateWikiPageOutput,
+  wikiCopy,
   WIKI_VERSION,
+  normalizeWikiLocale,
   type ReadSource,
+  type WikiLocale,
 } from '@codedelta/wiki-engine';
 import type { JobStore } from '../jobs';
 import { RepoRegistry, SettingsStore } from '../store/repo-registry';
@@ -54,10 +57,27 @@ export class WikiError extends Error {
 interface WikiMeta {
   llmUsed: boolean;
   generatedAt: string;
+  locale: WikiLocale;
 }
 
-function wikiDir(cacheRoot: string, repoId: string, commitHash: string): string {
-  return path.join(cacheRoot, 'wiki', repoId, commitHash, WIKI_VERSION);
+function wikiDir(cacheRoot: string, repoId: string, commitHash: string, locale: WikiLocale): string {
+  return path.join(cacheRoot, 'wiki', repoId, commitHash, WIKI_VERSION, locale);
+}
+
+/** Prefer locale-scoped cache; fall back to pre-0.2.3 English cache (no locale segment). */
+function resolveWikiDir(
+  cacheRoot: string,
+  repoId: string,
+  commitHash: string,
+  locale: WikiLocale,
+): string {
+  const localized = wikiDir(cacheRoot, repoId, commitHash, locale);
+  if (fs.existsSync(path.join(localized, 'meta.json'))) return localized;
+  if (locale === 'en') {
+    const legacy = path.join(cacheRoot, 'wiki', repoId, commitHash, WIKI_VERSION);
+    if (fs.existsSync(path.join(legacy, 'meta.json'))) return legacy;
+  }
+  return localized;
 }
 
 function writeJsonAtomic(filePath: string, value: unknown): void {
@@ -181,8 +201,8 @@ export function getWikiAsset(
   }
 }
 
-function wikiJobKey(repoId: string, commitHash: string): string {
-  return `wiki\u0000${repoId}\u0000${commitHash}`;
+function wikiJobKey(repoId: string, commitHash: string, locale: WikiLocale): string {
+  return `wiki\u0000${repoId}\u0000${commitHash}\u0000${locale}`;
 }
 
 export function getWikiStatus(
@@ -190,10 +210,12 @@ export function getWikiStatus(
   jobs: JobStore,
   repoId: string,
   commitHash: string,
+  localeInput?: string,
 ): WikiStatus {
   requireRepo(registry, repoId);
+  const locale = normalizeWikiLocale(localeInput);
 
-  const job = jobs.getActiveByKey(wikiJobKey(repoId, commitHash));
+  const job = jobs.getActiveByKey(wikiJobKey(repoId, commitHash, locale));
   if (job) {
     return {
       state: 'generating',
@@ -205,7 +227,7 @@ export function getWikiStatus(
     };
   }
 
-  const dir = wikiDir(registry.getCacheRoot(), repoId, commitHash);
+  const dir = resolveWikiDir(registry.getCacheRoot(), repoId, commitHash, locale);
   const meta = readJson<WikiMeta>(path.join(dir, 'meta.json'));
   const toc = readJson<WikiToc>(path.join(dir, 'toc.json'));
   if (meta && toc) {
@@ -227,22 +249,24 @@ export function startWikiGeneration(
   jobs: JobStore,
   repoId: string,
   commitHash: string,
+  localeInput?: string,
 ): { jobId: string; alreadyReady: boolean } {
   const ref = requireRepo(registry, repoId);
   verifyCommit(ref.clonePath, commitHash);
+  const locale = normalizeWikiLocale(localeInput);
 
-  const status = getWikiStatus(registry, jobs, repoId, commitHash);
+  const status = getWikiStatus(registry, jobs, repoId, commitHash, locale);
   if (status.state === 'ready') {
     return { jobId: '', alreadyReady: true };
   }
 
-  const job = jobs.start('wiki-generate', wikiJobKey(repoId, commitHash), async (report) => {
+  const job = jobs.start('wiki-generate', wikiJobKey(repoId, commitHash, locale), async (report) => {
     report({ phase: 'snapshot' });
     const snapshot = await loadSnapshot(registry, repoId, commitHash);
 
     report({ phase: 'toc' });
-    const toc = planWikiToc(snapshot);
-    const dir = wikiDir(registry.getCacheRoot(), repoId, commitHash);
+    const toc = planWikiToc(snapshot, { locale });
+    const dir = wikiDir(registry.getCacheRoot(), repoId, commitHash, locale);
     writeJsonAtomic(path.join(dir, 'toc.json'), toc);
 
     const providerConfig = settings.getProvider();
@@ -259,13 +283,14 @@ export function startWikiGeneration(
       report({ phase: section.title, completed });
       const context = buildSectionContext(snapshot, section, readSource, {
         resolveReadmeAssetUrl,
+        locale,
       });
 
       let narrative: string | undefined;
       if (useLlm) {
         try {
           const modelText = await provider.complete({
-            system: buildWikiPageSystemPrompt(),
+            system: buildWikiPageSystemPrompt(locale),
             messages: [{ role: 'user', content: buildWikiPageUserPayload(context) }],
             temperature: 0.2,
           });
@@ -293,17 +318,27 @@ export function startWikiGeneration(
       report({ completed });
     }
 
-    const meta: WikiMeta = { llmUsed: llmUsedAnywhere, generatedAt: new Date().toISOString() };
+    const meta: WikiMeta = {
+      llmUsed: llmUsedAnywhere,
+      generatedAt: new Date().toISOString(),
+      locale,
+    };
     writeJsonAtomic(path.join(dir, 'meta.json'), meta);
   });
 
   return { jobId: job.id, alreadyReady: false };
 }
 
-export function getWikiToc(registry: RepoRegistry, repoId: string, commitHash: string): WikiToc {
+export function getWikiToc(
+  registry: RepoRegistry,
+  repoId: string,
+  commitHash: string,
+  localeInput?: string,
+): WikiToc {
   requireRepo(registry, repoId);
+  const locale = normalizeWikiLocale(localeInput);
   const toc = readJson<WikiToc>(
-    path.join(wikiDir(registry.getCacheRoot(), repoId, commitHash), 'toc.json'),
+    path.join(resolveWikiDir(registry.getCacheRoot(), repoId, commitHash, locale), 'toc.json'),
   );
   if (!toc) {
     throw new WikiError('Wiki not generated for this commit yet. POST /wiki/generate first.', 404);
@@ -316,13 +351,19 @@ export function getWikiPage(
   repoId: string,
   commitHash: string,
   sectionId: string,
+  localeInput?: string,
 ): WikiPageContent {
   requireRepo(registry, repoId);
   if (!/^[a-z0-9-]+$/.test(sectionId)) {
     throw new WikiError('Invalid section id', 400);
   }
+  const locale = normalizeWikiLocale(localeInput);
   const page = readJson<WikiPageContent>(
-    path.join(wikiDir(registry.getCacheRoot(), repoId, commitHash), 'pages', `${sectionId}.json`),
+    path.join(
+      resolveWikiDir(registry.getCacheRoot(), repoId, commitHash, locale),
+      'pages',
+      `${sectionId}.json`,
+    ),
   );
   if (!page) {
     throw new WikiError('Wiki page not found. Generate the wiki for this commit first.', 404);
@@ -345,6 +386,7 @@ export async function askWiki(
   if (!commitHash) throw new WikiError('commit is required', 400);
   const question = body.question?.trim();
   if (!question) throw new WikiError('question is required', 400);
+  const locale = normalizeWikiLocale(body.locale);
 
   const providerConfig = settings.getProvider();
   const provider = createProvider(providerConfig);
@@ -357,7 +399,7 @@ export async function askWiki(
 
   const snapshot = await loadSnapshot(registry, repoId, commitHash);
   const readSource = makeReadSource(ref.clonePath, commitHash);
-  const retrieval = prepareAskRetrieval(snapshot, question, readSource);
+  const retrieval = prepareAskRetrieval(snapshot, question, readSource, { locale });
 
   const answer: WikiAskAnswer = {
     question,
@@ -371,7 +413,7 @@ export async function askWiki(
   try {
     const history = (body.history ?? []).slice(-6);
     const modelText = await provider.complete({
-      system: buildWikiAskSystemPrompt(),
+      system: buildWikiAskSystemPrompt(locale),
       messages: [
         ...history.map((turn) => ({ role: turn.role, content: turn.content })),
         {
@@ -403,8 +445,7 @@ export async function askWiki(
       answer.confidence = validated.value.confidence;
       answer.provider = { type: provider.id, model: providerConfig.model, used: true };
     } else {
-      answer.answer =
-        'The model returned a response that could not be validated against the evidence whitelist. Try rephrasing with a concrete symbol, file, or module name.';
+      answer.answer = wikiCopy(locale).askValidationFailed;
       answer.provider = {
         type: provider.id,
         model: providerConfig.model,

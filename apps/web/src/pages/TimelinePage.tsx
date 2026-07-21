@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, type ChangedFile, type CommitDetail, type CommitInfo, type RepoRef } from '../api/client';
 import { Alert, Button, Card, FormField, Mono, PageHeader, Select } from '../components/ui';
 
 export default function TimelinePage() {
+  const { t } = useTranslation(['timeline', 'common']);
   const { repoId } = useParams<{ repoId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -43,7 +45,7 @@ export default function TimelinePage() {
         await loadCommits(repoId!, initialBranch);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load repository');
+          setError(err instanceof Error ? err.message : t('common:errors.loadRepoFailed'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -54,14 +56,14 @@ export default function TimelinePage() {
     return () => {
       cancelled = true;
     };
-  }, [repoId, searchParams, loadCommits]);
+  }, [repoId, searchParams, loadCommits, t]);
 
   useEffect(() => {
     if (!repoId || !branch || loading) return;
     loadCommits(repoId, branch).catch((err) => {
-      setError(err instanceof Error ? err.message : 'Failed to load commits');
+      setError(err instanceof Error ? err.message : t('common:errors.loadCommitsFailed'));
     });
-  }, [repoId, branch, loading, loadCommits]);
+  }, [repoId, branch, loading, loadCommits, t]);
 
   async function selectCommit(hash: string) {
     if (!repoId) return;
@@ -69,7 +71,7 @@ export default function TimelinePage() {
       const detail = await api.getCommit(repoId, hash);
       setSelected(detail);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load commit');
+      setError(err instanceof Error ? err.message : t('common:errors.loadCommitFailed'));
     }
   }
 
@@ -88,7 +90,7 @@ export default function TimelinePage() {
   if (loading) {
     return (
       <div className="page">
-        <p className="hint">Loading…</p>
+        <p className="hint">{t('common:loading')}</p>
       </div>
     );
   }
@@ -104,10 +106,10 @@ export default function TimelinePage() {
   return (
     <div className="page">
       <PageHeader
-        title="Commit Timeline"
+        title={t('title')}
         description={`${repo.input} · ${repo.source}`}
         actions={
-          <FormField label="Branch">
+          <FormField label={t('branch')}>
             <Select value={branch} onChange={(e) => setBranch(e.target.value)} style={{ minWidth: 160 }}>
               {branches.map((b) => (
                 <option key={b} value={b}>
@@ -124,11 +126,11 @@ export default function TimelinePage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Hash</th>
-                <th>Message</th>
-                <th>Author</th>
-                <th>Date</th>
-                <th>Files</th>
+                <th>{t('table.hash')}</th>
+                <th>{t('table.message')}</th>
+                <th>{t('table.author')}</th>
+                <th>{t('table.date')}</th>
+                <th>{t('table.files')}</th>
               </tr>
             </thead>
             <tbody>
@@ -159,15 +161,15 @@ export default function TimelinePage() {
               </h2>
               <p>{selected.message}</p>
               <dl className="meta-grid">
-                <dt>Author</dt>
+                <dt>{t('meta.author')}</dt>
                 <dd>{selected.author}</dd>
-                <dt>Date</dt>
+                <dt>{t('meta.date')}</dt>
                 <dd>{new Date(selected.date).toLocaleString()}</dd>
-                <dt>Changed files</dt>
+                <dt>{t('meta.changedFiles')}</dt>
                 <dd>{selected.changedFilesCount}</dd>
               </dl>
 
-              <h3>Changed files</h3>
+              <h3>{t('changedFiles')}</h3>
               <ul className="file-list">
                 {selected.changedFiles.map((f: ChangedFile) => (
                   <li key={f.path}>
@@ -181,29 +183,29 @@ export default function TimelinePage() {
                   variant="primary"
                   size="sm"
                   disabled={!selected.parents[0]}
-                  title={selected.parents[0] ? 'Compare with parent commit' : 'Root commit has no parent'}
+                  title={selected.parents[0] ? t('compareParent') : t('rootNoParent')}
                   onClick={() => {
                     if (selected.parents[0]) openDelta(selected.parents[0], selected.hash);
                   }}
                 >
-                  Open in Delta View
+                  {t('openDelta')}
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => openTrace(selected.hash)}>
-                  Open in Trace View
+                  {t('openTrace')}
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => openPanorama(selected.hash)}>
-                  Open in Panorama
+                  {t('openPanorama')}
                 </Button>
               </div>
             </>
           ) : (
-            <p className="hint">Select a commit to view details and quick actions.</p>
+            <p className="hint">{t('selectHint')}</p>
           )}
         </aside>
       </div>
 
       <p className="footer-note">
-        Need another repository? <Link to="/import">Import again</Link>
+        {t('footer')} <Link to="/import">{t('importAgain')}</Link>
       </p>
     </div>
   );

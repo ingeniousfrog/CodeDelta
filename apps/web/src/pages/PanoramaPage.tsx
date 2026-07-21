@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { api, type CommitInfo, type PanoramaGraph } from '../api/client';
 import PanoramaGraphView from '../components/PanoramaGraphView';
@@ -23,11 +24,11 @@ function resolveCommitFromParams(
   return commits[0]?.hash ?? '';
 }
 
-function orphanCommitOption(hash: string): CommitInfo {
+function orphanCommitOption(hash: string, outsideMessage: string): CommitInfo {
   return {
     hash,
     shortHash: hash.slice(0, 7),
-    message: 'Outside current branch history',
+    message: outsideMessage,
     author: '',
     authorEmail: '',
     date: '',
@@ -57,6 +58,7 @@ function buildPanoramaRequestKey(
 }
 
 export default function PanoramaPage() {
+  const { t } = useTranslation(['panorama', 'common']);
   const { repoId } = useParams<{ repoId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -83,8 +85,8 @@ export default function PanoramaPage() {
 
   const commitsForSelect = useMemo(() => {
     if (!commit || commits.some((c) => c.hash === commit)) return commits;
-    return [orphanCommitOption(commit), ...commits];
-  }, [commits, commit]);
+    return [orphanCommitOption(commit, t('outsideBranch')), ...commits];
+  }, [commits, commit, t]);
 
   const selectedCommit = useMemo(
     () => commitsForSelect.find((c) => c.hash === commit),
@@ -271,7 +273,7 @@ export default function PanoramaPage() {
       } catch (err) {
         if (cancelled || gen !== loadGenerationRef.current) return;
         setGraph(null);
-        setError(err instanceof Error ? err.message : 'Panorama failed');
+        setError(err instanceof Error ? err.message : t('common:errors.panoramaFailed'));
       } finally {
         if (!cancelled && gen === loadGenerationRef.current) {
           setLoading(false);
@@ -399,7 +401,7 @@ export default function PanoramaPage() {
         };
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Enrich failed');
+      setError(err instanceof Error ? err.message : t('common:errors.enrichFailed'));
     } finally {
       setEnriching(false);
     }
@@ -414,32 +416,33 @@ export default function PanoramaPage() {
     <div className="page page--panorama">
       {fromTrace && repoId && (
         <Link to={`/repos/${repoId}/trace`} className="back-link">
-          ← Back to Trace results
+          {t('backToTrace')}
         </Link>
       )}
       {fromDelta && repoId && (
         <Link to={`/repos/${repoId}/delta?base=${searchParams.get('base') ?? ''}&head=${commit}`} className="back-link">
-          ← Back to Delta View
+          {t('backToDelta')}
         </Link>
       )}
 
-      <PageHeader title="Panorama" />
+      <PageHeader title={t('title')} />
 
       <p className="hint panorama-intro">
-        Call-flow graph at one commit. Drill down with <em>Expand from here</em>; the URL keeps your path.{' '}
+        {t('introBefore')} <em>{t('expandFromHere')}</em>
+        {t('introMid')}{' '}
         {deltaHref && (
           <>
-            <Link to={deltaHref}>Delta View</Link> colors changes;{' '}
+            <Link to={deltaHref}>{t('deltaView')}</Link> {t('introColors')}{' '}
           </>
         )}
-        {repoId && <Link to={`/repos/${repoId}/trace`}>Trace</Link>} opens here from a candidate commit.
+        {repoId && <Link to={`/repos/${repoId}/trace`}>{t('trace')}</Link>} {t('introAfter')}
       </p>
 
       <Card className="panorama-controls-card">
         <div className="panorama-controls">
-          <FormField label="Branch">
+          <FormField label={t('branch')}>
             <Select value={branch} onChange={(e) => handleBranchChange(e.target.value)} disabled={!branch}>
-              {!branch && <option value="">Loading…</option>}
+              {!branch && <option value="">{t('loading')}</option>}
               {branches.map((b) => (
                 <option key={b} value={b}>
                   {b}
@@ -448,9 +451,9 @@ export default function PanoramaPage() {
             </Select>
           </FormField>
 
-          <FormField label="Commit">
+          <FormField label={t('commit')}>
             <Select value={commit} onChange={(e) => handleCommitChange(e.target.value)}>
-              <option value="">Select commit…</option>
+              <option value="">{t('selectCommit')}</option>
               {commitsForSelect.map((c) => (
                 <option key={c.hash} value={c.hash}>
                   {c.shortHash} — {c.message.slice(0, 55)}
@@ -459,21 +462,21 @@ export default function PanoramaPage() {
             </Select>
           </FormField>
 
-          <FormField label="Call depth">
+          <FormField label={t('callDepth')}>
             <Select value={String(depth)} onChange={(e) => handleDepthChange(Number(e.target.value))}>
-              <option value="2">2 hops</option>
-              <option value="3">3 hops</option>
-              <option value="4">4 hops</option>
-              <option value="5">5 hops</option>
+              <option value="2">{t('hops', { n: 2 })}</option>
+              <option value="3">{t('hops', { n: 3 })}</option>
+              <option value="4">{t('hops', { n: 4 })}</option>
+              <option value="5">{t('hops', { n: 5 })}</option>
             </Select>
           </FormField>
 
-          <FormField label="Focus symbol (optional)">
+          <FormField label={t('focusSymbol')}>
             <input
               className="input"
               value={root}
               onChange={(e) => setRoot(e.target.value)}
-              placeholder="e.g. GET /api/users or MainActivity.onCreate"
+              placeholder={t('focusPlaceholder')}
             />
           </FormField>
 
@@ -489,22 +492,25 @@ export default function PanoramaPage() {
             }}
             disabled={loading || !commit}
           >
-            {loading ? 'Loading…' : root.trim() ? 'Apply focus' : 'Refresh'}
+            {loading ? t('loading') : root.trim() ? t('applyFocus') : t('refresh')}
           </Button>
         </div>
         {selectedCommit && (
           <p className="hint panorama-commit-hint">
-            {branch && (
-              <>
-                Branch <strong>{branch}</strong>
-                {' · '}
-              </>
-            )}
-            Snapshot <strong>{selectedCommit.shortHash}</strong> · {selectedCommit.message.slice(0, 80)}
+            {branch
+              ? t('commitHint', {
+                  branch,
+                  hash: selectedCommit.shortHash,
+                  message: selectedCommit.message.slice(0, 80),
+                })
+              : t('commitHintNoBranch', {
+                  hash: selectedCommit.shortHash,
+                  message: selectedCommit.message.slice(0, 80),
+                })}
             {graph?.stats.effectiveDepth && graph.stats.effectiveDepth > depth && (
               <>
                 {' · '}
-                Overview uses depth {graph.stats.effectiveDepth} on this repo size
+                {t('depthBoost', { depth: graph.stats.effectiveDepth })}
               </>
             )}
           </p>

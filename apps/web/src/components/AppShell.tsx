@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useMatch } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { RepoProvider, useRepo } from '../context/RepoContext';
 
 function repoNavPath(repoId: string | undefined, page: string): string {
@@ -7,9 +8,11 @@ function repoNavPath(repoId: string | undefined, page: string): string {
 }
 
 function ShellInner() {
+  const { t } = useTranslation('common');
   const match = useMatch('/repos/:repoId/*');
   const repoId = match?.params.repoId;
   const repo = useRepo();
+  const importFirst = t('nav.importFirst');
 
   return (
     <div className="app">
@@ -18,95 +21,102 @@ function ShellInner() {
           <NavLink to="/" className="brand-link">
             CodeDelta
           </NavLink>
-          <span className="brand-tagline">commit-aware structural intelligence</span>
+          <span className="brand-tagline">{t('brand.tagline')}</span>
         </div>
         {repo && (
           <div className="app-header-repo" title={repo.input}>
-            <strong>Repository</strong> · {repo.input}
+            <strong>{t('brand.repository')}</strong> · {repo.input}
           </div>
         )}
       </header>
 
       <div className="app-body">
-        <nav className="app-sidebar" aria-label="Main">
+        <nav className="app-sidebar" aria-label={t('nav.ariaMain')}>
           <section className="nav-section">
-            <p className="nav-section-title">Repository</p>
+            <p className="nav-section-title">{t('nav.sectionRepository')}</p>
             <NavLink to="/import" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-              Import
+              {t('nav.import')}
             </NavLink>
             {repoId ? (
               <NavLink
                 to={repoNavPath(repoId, 'timeline')}
                 className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
               >
-                Commit Timeline
+                {t('nav.timeline')}
               </NavLink>
             ) : null}
           </section>
 
           <section className="nav-section">
-            <p className="nav-section-title">Analysis</p>
+            <p className="nav-section-title">{t('nav.sectionAnalysis')}</p>
             {repoId ? (
               <>
                 <NavLink
                   to={repoNavPath(repoId, 'delta')}
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                 >
-                  Delta View
+                  {t('nav.delta')}
                 </NavLink>
                 <NavLink
                   to={repoNavPath(repoId, 'trace')}
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                 >
-                  Trace View
+                  {t('nav.trace')}
                 </NavLink>
                 <NavLink
                   to={repoNavPath(repoId, 'panorama')}
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                 >
-                  Panorama
+                  {t('nav.panorama')}
                 </NavLink>
                 <NavLink
                   to={repoNavPath(repoId, 'wiki')}
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                 >
-                  Wiki
+                  {t('nav.wiki')}
                 </NavLink>
                 <NavLink
                   to={repoNavPath(repoId, 'training')}
                   className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
                 >
-                  Training Data
+                  {t('nav.training')}
                 </NavLink>
               </>
             ) : (
               <>
-                <span className="nav-link disabled" title="Import a repository first">
-                  Delta View
+                <span className="nav-link disabled" title={importFirst}>
+                  {t('nav.delta')}
                 </span>
-                <span className="nav-link disabled" title="Import a repository first">
-                  Trace View
+                <span className="nav-link disabled" title={importFirst}>
+                  {t('nav.trace')}
                 </span>
-                <span className="nav-link disabled" title="Import a repository first">
-                  Panorama
+                <span className="nav-link disabled" title={importFirst}>
+                  {t('nav.panorama')}
                 </span>
-                <span className="nav-link disabled" title="Import a repository first">
-                  Wiki
+                <span className="nav-link disabled" title={importFirst}>
+                  {t('nav.wiki')}
                 </span>
-                <span className="nav-link disabled" title="Import a repository first">
-                  Training Data
+                <span className="nav-link disabled" title={importFirst}>
+                  {t('nav.training')}
                 </span>
               </>
             )}
           </section>
 
           <section className="nav-section">
-            <p className="nav-section-title">Settings</p>
+            <p className="nav-section-title">{t('nav.sectionSettings')}</p>
+            <NavLink
+              to="/settings"
+              end
+              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
+            >
+              {t('nav.general')}
+            </NavLink>
             <NavLink
               to="/settings/provider"
               className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
             >
-              Provider Settings
+              {t('nav.provider')}
             </NavLink>
           </section>
         </nav>

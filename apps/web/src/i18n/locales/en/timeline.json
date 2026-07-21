@@ -1,0 +1,25 @@
+{
+  "title": "Commit Timeline",
+  "branch": "Branch",
+  "table": {
+    "hash": "Hash",
+    "message": "Message",
+    "author": "Author",
+    "date": "Date",
+    "files": "Files"
+  },
+  "meta": {
+    "author": "Author",
+    "date": "Date",
+    "changedFiles": "Changed files"
+  },
+  "changedFiles": "Changed files",
+  "openDelta": "Open in Delta View",
+  "openTrace": "Open in Trace View",
+  "openPanorama": "Open in Panorama",
+  "compareParent": "Compare with parent commit",
+  "rootNoParent": "Root commit has no parent",
+  "selectHint": "Select a commit to view details and quick actions.",
+  "footer": "Need another repository?",
+  "importAgain": "Import again"
+}

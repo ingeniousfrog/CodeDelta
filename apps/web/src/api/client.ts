@@ -141,21 +141,25 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  generateWiki: (id: string, commit: string) =>
+  generateWiki: (id: string, commit: string, locale?: string) =>
     request<{ status: string; jobId?: string }>(
-      `/api/repos/${id}/wiki/generate?commit=${encodeURIComponent(commit)}`,
+      `/api/repos/${id}/wiki/generate?commit=${encodeURIComponent(commit)}${locale ? `&locale=${encodeURIComponent(locale)}` : ''}`,
       { method: 'POST' },
     ),
 
-  getWikiStatus: (id: string, commit: string) =>
-    request<WikiStatus>(`/api/repos/${id}/wiki/status?commit=${encodeURIComponent(commit)}`),
+  getWikiStatus: (id: string, commit: string, locale?: string) =>
+    request<WikiStatus>(
+      `/api/repos/${id}/wiki/status?commit=${encodeURIComponent(commit)}${locale ? `&locale=${encodeURIComponent(locale)}` : ''}`,
+    ),
 
-  getWikiToc: (id: string, commit: string) =>
-    request<WikiToc>(`/api/repos/${id}/wiki/toc?commit=${encodeURIComponent(commit)}`),
+  getWikiToc: (id: string, commit: string, locale?: string) =>
+    request<WikiToc>(
+      `/api/repos/${id}/wiki/toc?commit=${encodeURIComponent(commit)}${locale ? `&locale=${encodeURIComponent(locale)}` : ''}`,
+    ),
 
-  getWikiPage: (id: string, commit: string, section: string) =>
+  getWikiPage: (id: string, commit: string, section: string, locale?: string) =>
     request<WikiPageContent>(
-      `/api/repos/${id}/wiki/page?commit=${encodeURIComponent(commit)}&section=${encodeURIComponent(section)}`,
+      `/api/repos/${id}/wiki/page?commit=${encodeURIComponent(commit)}&section=${encodeURIComponent(section)}${locale ? `&locale=${encodeURIComponent(locale)}` : ''}`,
     ),
 
   askWiki: (
@@ -164,6 +168,7 @@ export const api = {
       commit: string;
       question: string;
       history?: Array<{ role: 'user' | 'assistant'; content: string }>;
+      locale?: string;
     },
   ) =>
     request<WikiAskAnswer>(`/api/repos/${id}/wiki/ask`, {
